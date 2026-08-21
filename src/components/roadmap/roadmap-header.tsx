@@ -1,0 +1,89 @@
+"use client";
+
+import Link from "next/link";
+import { RotateCw, Briefcase, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useLocale } from "@/lib/i18n/locale-provider";
+import type { ProgressResult } from "@/lib/career/roadmap-progress";
+
+interface RoadmapHeaderProps {
+  careerTitle: string;
+  careerScore: number;
+  progress: ProgressResult;
+  estimatedRange: { min: number; max: number };
+  onChangeCareer: () => void;
+  onRegenerate: () => void;
+}
+
+export function RoadmapHeader({
+  careerTitle,
+  careerScore,
+  progress,
+  estimatedRange,
+  onChangeCareer,
+  onRegenerate,
+}: RoadmapHeaderProps) {
+  const { dict } = useLocale();
+  const page = dict.dashboard.roadmapPage;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
+          <p className="text-muted-foreground text-sm">{page.subtitle}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link href={`/dashboard/jobs?role=${encodeURIComponent(careerTitle)}`}>
+                <Search />
+                {page.findJobsCta}
+              </Link>
+            }
+          />
+          <Button variant="outline" size="sm" onClick={onChangeCareer}>
+            <Briefcase />
+            {page.changeCareerCta}
+          </Button>
+          <Button variant="outline" size="sm" onClick={onRegenerate}>
+            <RotateCw />
+            {page.regenerateCta}
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
+          <div>
+            <p className="text-muted-foreground text-xs">{page.goalLabel}</p>
+            <p className="truncate text-base font-semibold">{careerTitle}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs">{page.careerScoreLabel}</p>
+            <p className="text-base font-semibold">{careerScore} / 100</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs">{page.progressLabel}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-base font-semibold">{progress.percent}%</p>
+              <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress.percent}%` }} />
+              </div>
+            </div>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs">{page.estimatedTimeLabel}</p>
+            <p className="text-base font-semibold">
+              {page.estimatedTimeTemplate.replace("{min}", String(estimatedRange.min)).replace("{max}", String(estimatedRange.max))}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

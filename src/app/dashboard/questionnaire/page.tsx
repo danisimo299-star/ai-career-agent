@@ -1,0 +1,37 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getLocale } from "@/lib/i18n/get-locale";
+import { chatService } from "@/server/services/chat.service";
+import { profileRepository } from "@/server/repositories/profile.repository";
+import { QuestionnaireWindow } from "@/components/questionnaire/questionnaire-window";
+import type { QuestionSpecData } from "@/components/questionnaire/types";
+
+export default async function QuestionnairePage() {
+  const user = await getCurrentUser();
+  if (!user?.id) redirect("/login");
+
+  const locale = await getLocale();
+  const [messages, progress, profile] = await Promise.all([
+    chatService.getConversation(user.id, locale),
+    chatService.getProgress(user.id),
+    profileRepository.findByUserId(user.id),
+  ]);
+
+  const initialMessages = messages.map((message) => ({
+    id: message.id,
+    role: message.role === "USER" ? ("user" as const) : ("assistant" as const),
+    content: message.content,
+    questionSpec: (message.questionSpec as unknown as QuestionSpecData | null) ?? null,
+  }));
+
+  return (
+    <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col">
+      <QuestionnaireWindow
+        initialMessages={initialMessages}
+        initialProgress={progress.percent}
+        initialIsComplete={progress.isComplete}
+        interests={profile?.interests ?? []}
+      />
+    </div>
+  );
+}

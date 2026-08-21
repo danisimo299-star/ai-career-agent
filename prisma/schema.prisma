@@ -1,0 +1,704 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (NextAuth / Auth.js adapter models)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  profile             Profile?
+  chatMessages        ChatMessage[]
+  careerRecommendations CareerRecommendation[]
+  roadmap             Roadmap?
+  resumes             Resume[]
+  interviewSessions   InterviewSession[]
+  jobRecommendations  JobRecommendation[]
+  missions            Mission[]
+  careerMissions      CareerMission[]
+  jobPreference       JobPreference?
+  savedJobs           SavedJob[]
+  coachMessages       CoachMessage[]
+  coachMemoryFacts    CoachMemoryFact[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Career profile — what the AI learns about the user over time
+// ---------------------------------------------------------------------------
+
+enum ExperienceLevel {
+  STUDENT
+  GRADUATE
+  JUNIOR
+  CAREER_CHANGER
+  MID
+  SENIOR
+}
+
+enum WorkFormat {
+  REMOTE
+  HYBRID
+  ONSITE
+  ANY
+}
+
+enum EducationStage {
+  SCHOOL
+  COLLEGE
+  UNIVERSITY
+  WORKING
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bio             String?          @db.Text
+  age             Int?
+  experienceLevel ExperienceLevel?
+  educationStage  EducationStage?
+  preferredFormat WorkFormat?
+  city            String?
+  country         String?
+  languages       String[]         @default([])
+  interests       String[]         @default([])
+  skills          String[]         @default([])
+  goals           String[]         @default([])
+  educationHistory Json?
+  salaryExpectation String?
+
+  // Populated incrementally by the AI career interview (see ChatMessage / AIService.analyzeUser)
+  strengths           String[] @default([])
+  weaknesses          String[] @default([])
+  personalitySummary  String?  @db.Text
+  careerDna           Json? // CareerDnaScores — 7 traits, 0-100 each
+  careerScore         Int?
+  careerInsights      String[] @default([])
+  interviewTopicsCovered String[] @default([])
+  // Fixed-key priority taxonomy from the Questionnaire's "priorities" question (salary/stability/growth/...) — see lib/ai/career/questionnaire.ts
+  careerPriorities    String[] @default([])
+  // Set once `pickNextQuestionId` (lib/ai/career/questionnaire.ts) returns null — the Questionnaire's variable-length step count makes a length threshold unreliable, so completeness is stored explicitly instead of re-derived.
+  questionnaireCompleted Boolean @default(false)
+
+  onboardingCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+// ---------------------------------------------------------------------------
+// AI chat — the primary intake / long-term assistant surface
+// ---------------------------------------------------------------------------
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatMessage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role    ChatRole
+  content String   @db.Text
+  // The pending structured question this ASSISTANT turn is asking, if any (see QuestionSpec in lib/ai/career/types.ts) — lets the Questionnaire UI re-render the same interactive widget after a page reload instead of falling back to plain text.
+  questionSpec Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("chat_messages")
+}
+
+// ---------------------------------------------------------------------------
+// Career analysis output
+// ---------------------------------------------------------------------------
+
+enum GrowthPotential {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model CareerRecommendation {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title              String
+  matchScore         Int
+  reasoning          String          @db.Text
+  requiredSkills     String[]        @default([])
+  learningTimeMonths Int             @default(6)
+  growthPotential    GrowthPotential @default(MEDIUM)
+  difficultyLevel    DifficultyLevel @default(MEDIUM)
+
+  roadmap Roadmap?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("career_recommendations")
+}
+
+// ---------------------------------------------------------------------------
+// Roadmap — one active roadmap per user; "Regenerate" replaces it in place
+// rather than keeping a history, matching the product's "rebuild my
+// roadmap" framing rather than "start a new one alongside the old."
+// ---------------------------------------------------------------------------
+
+enum MilestoneStatus {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ResourceType {
+  YOUTUBE
+  DOCUMENTATION
+  COURSE
+  BOOK
+  ARTICLE
+}
+
+enum ResourceDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model Roadmap {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  careerTitle             String
+  careerRecommendationId  String?               @unique
+  careerRecommendation    CareerRecommendation? @relation(fields: [careerRecommendationId], references: [id], onDelete: SetNull)
+
+  milestones     RoadmapMilestone[]
+  careerMissions CareerMission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("roadmaps")
+}
+
+model RoadmapMilestone {
+  id        String  @id @default(cuid())
+  roadmapId String
+  roadmap   Roadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  order          Int
+  title          String
+  description    String          @db.Text
+  whyItMatters   String          @db.Text
+  expectedResult String          @db.Text
+  estimatedWeeks Int
+  skills         String[]        @default([])
+  status         MilestoneStatus @default(LOCKED)
+
+  tasks          RoadmapTask[]
+  careerMissions CareerMission[]
+
+  @@index([roadmapId, order])
+  @@map("roadmap_milestones")
+}
+
+model RoadmapTask {
+  id          String           @id @default(cuid())
+  milestoneId String
+  milestone   RoadmapMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  order       Int
+  title       String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  resources      RoadmapResource[]
+  careerMissions CareerMission[]
+
+  @@index([milestoneId, order])
+  @@map("roadmap_tasks")
+}
+
+model RoadmapResource {
+  id     String      @id @default(cuid())
+  taskId String
+  task   RoadmapTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  title      String
+  type       ResourceType
+  provider   String?
+  difficulty ResourceDifficulty?
+  language   String?
+  url        String?
+  /// True only if `url` points at a source we actually know is real (a small
+  /// trusted-domain allowlist) — never set true for an AI-generated guess.
+  verified   Boolean @default(false)
+
+  @@index([taskId])
+  @@map("roadmap_resources")
+}
+
+// ---------------------------------------------------------------------------
+// Career Missions — AI-generated daily actionable tasks, connected back to
+// the roadmap. Distinct from the `Mission` model below ("Weekly Missions",
+// a fixed gap-detection checklist from an earlier phase) — different
+// concept, deliberately not merged; see ARCHITECTURE.md.
+// ---------------------------------------------------------------------------
+
+enum CareerMissionStatus {
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  EXPIRED
+}
+
+model CareerMission {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  roadmapId     String?
+  roadmap       Roadmap?          @relation(fields: [roadmapId], references: [id], onDelete: SetNull)
+  milestoneId   String?
+  milestone     RoadmapMilestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  roadmapTaskId String?
+  roadmapTask   RoadmapTask?      @relation(fields: [roadmapTaskId], references: [id], onDelete: SetNull)
+
+  title            String
+  description      String          @db.Text
+  goal             String          @db.Text
+  instructions     String[]        @default([])
+  whyItMatters     String          @db.Text
+  expectedResult   String          @db.Text
+  estimatedMinutes Int
+  difficulty       DifficultyLevel @default(MEDIUM)
+  skill            String?
+  priority         Int             @default(0)
+
+  status CareerMissionStatus @default(AVAILABLE)
+  /// Server-computed calendar date (date-only) this mission belongs to —
+  /// deliberately not relying on client-supplied dates/timezones.
+  missionDate DateTime @db.Date
+
+  resources MissionResource[]
+
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  skippedAt   DateTime?
+  expiresAt   DateTime?
+
+  @@index([userId, missionDate])
+  @@index([roadmapTaskId])
+  @@map("career_missions")
+}
+
+model MissionResource {
+  id        String        @id @default(cuid())
+  missionId String
+  mission   CareerMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  title      String
+  type       ResourceType
+  provider   String?
+  difficulty ResourceDifficulty?
+  language   String?
+  url        String?
+  verified   Boolean @default(false)
+
+  @@index([missionId])
+  @@map("mission_resources")
+}
+
+// ---------------------------------------------------------------------------
+// Resume builder
+// ---------------------------------------------------------------------------
+
+enum ResumeTemplate {
+  MODERN
+  PROFESSIONAL
+  MINIMAL
+}
+
+model Resume {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The target role this resume is written for — also used to ground AI
+  /// generation and the ATS keyword check against `professionCatalog`.
+  title    String
+  /// Structured resume data (personal info, summary, experience, education,
+  /// projects, skills, languages, certificates) — see `ResumeContent`. A
+  /// Json blob rather than one table per section: a resume is edited and
+  /// re-rendered as a whole document, not queried section-by-section.
+  content  Json
+  template ResumeTemplate @default(MODERN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("resumes")
+}
+
+// ---------------------------------------------------------------------------
+// Interview preparation
+// ---------------------------------------------------------------------------
+
+enum InterviewSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum InterviewType {
+  GENERAL
+  TECHNICAL
+  BEHAVIORAL
+  HR
+  MIXED
+  RESUME_BASED
+}
+
+model InterviewSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  targetRole      String
+  type            InterviewType          @default(MIXED)
+  /// Reuses the same EASY/MEDIUM/HARD scale as RoadmapTask/CareerMission
+  /// (labelled Beginner/Intermediate/Advanced in the interview UI) rather
+  /// than introducing a parallel difficulty enum.
+  difficulty      DifficultyLevel        @default(MEDIUM)
+  /// Reuses `Profile.experienceLevel`'s existing enum rather than a new
+  /// one; the interview setup UI only offers STUDENT/JUNIOR/MID/SENIOR of
+  /// its six values (GRADUATE/CAREER_CHANGER stay valid but unused here).
+  experienceLevel ExperienceLevel        @default(JUNIOR)
+  /// Target primary-question count (5/10/15) chosen at setup — follow-up
+  /// questions are additional and not counted against this.
+  questionCount   Int                    @default(5)
+  status          InterviewSessionStatus @default(IN_PROGRESS)
+  /// Structured final report (score breakdown, narrative, recommendations),
+  /// validated with Zod on write — see `InterviewReportResult`. Null until
+  /// the session finishes.
+  report          Json?
+
+  questions InterviewQuestion[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  finishedAt DateTime?
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("interview_sessions")
+}
+
+model InterviewQuestion {
+  id        String           @id @default(cuid())
+  sessionId String
+  session   InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  order    Int
+  /// Concrete type of this specific question — always resolved to one of
+  /// GENERAL/TECHNICAL/BEHAVIORAL/HR even in a MIXED session, so a per-type
+  /// score breakdown is always computable.
+  type     InterviewType @default(GENERAL)
+  /// Skill this question targets, e.g. "SQL" — set only for TECHNICAL
+  /// questions, used to compute the weak-skill roadmap recommendation.
+  skill    String?
+  isFollowUp Boolean @default(false)
+
+  question         String  @db.Text
+  userAnswer       String? @db.Text
+  /// Short 1-2 sentence feedback shown immediately after the answer, kept
+  /// separate from the more detailed `strengths`/`improvements` shown later
+  /// in the full per-question review.
+  aiEvaluation     String? @db.Text
+  /// Structured 0-100 sub-scores (relevance, correctness, clarity,
+  /// confidence, technicalDepth, communication, completeness) — see
+  /// `InterviewAnswerEvaluationResult`. `score` is their aggregate.
+  scoreBreakdown   Json?
+  score            Int?
+  strengths        String? @db.Text
+  improvements     String? @db.Text
+  /// What a strong answer could include — deliberately framed as one good
+  /// approach, never presented as the only correct answer.
+  idealAnswerNotes String? @db.Text
+
+  @@index([sessionId, order])
+  @@map("interview_questions")
+}
+
+// ---------------------------------------------------------------------------
+// Weekly missions — small, concrete next actions derived from profile/score gaps
+// ---------------------------------------------------------------------------
+
+enum MissionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Mission {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  key    String // stable catalog key (e.g. "create_resume") — title/description are translated client-side
+  status MissionStatus @default(PENDING)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("missions")
+}
+
+// ---------------------------------------------------------------------------
+// Job matching — deterministic rule-based scoring (see `lib/career/job-matching.ts`)
+// over vacancies from `JobsProvider` (mock demo data, or real HH.ru results
+// once `HH_ACCESS_TOKEN` is configured; never fabricated vacancies/IDs). AI
+// is only used for the optional "Prepare for this job" plan, never for the
+// match score itself.
+// ---------------------------------------------------------------------------
+
+enum JobSource {
+  MOCK
+  HH_RU
+}
+
+/// `requiredSkills`/`employmentType`/`workFormat`/`experienceLevel`/`matchScore`/
+/// `matchBreakdown` are recomputed fresh on every `jobsService.recommend()` call
+/// (the table is fully replaced, never patched) — safe to cache because it's
+/// never read as a source of truth between recomputations, only rendered.
+model JobRecommendation {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title      String
+  company    String
+  location   String?
+  salaryMin  Int?
+  salaryMax  Int?
+  currency   String?
+  matchReason String  @db.Text
+  sourceUrl  String
+  source     JobSource @default(MOCK)
+
+  requiredSkills  String[]    @default([])
+  employmentType  String?
+  workFormat      WorkFormat?
+  experienceLevel String?
+  matchScore      Int?
+  matchBreakdown  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("job_recommendations")
+}
+
+/// One row per user (like `Roadmap`) — the filters `jobsService.search()`
+/// falls back to when a request doesn't override them, and what the
+/// dashboard's "Recommended Jobs" widget is generated from.
+model JobPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  city                 String?
+  workFormat           WorkFormat?
+  experienceLevel      ExperienceLevel?
+  employmentTypes      String[] @default([])
+  salaryExpectationMin Int?
+  openToInternship     Boolean  @default(false)
+  skills               String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("job_preferences")
+}
+
+/// Covers both "Saved Jobs" and the "Application Tracker" — the prompt
+/// describes the same Saved→Preparing→Applied→Interview→Rejected→Offer
+/// progression for both, so they're one model with two filtered views
+/// (tracker = status != SAVED) rather than a duplicated status machine.
+/// Status changes are always user-driven; nothing here is inferred from an
+/// external system the app doesn't actually have.
+enum SavedJobStatus {
+  SAVED
+  PREPARING
+  APPLIED
+  INTERVIEW
+  REJECTED
+  OFFER
+}
+
+model SavedJob {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title          String
+  company        String
+  location       String?
+  salaryMin      Int?
+  salaryMax      Int?
+  currency       String?
+  sourceUrl      String
+  source         JobSource @default(MOCK)
+  requiredSkills String[]  @default([])
+  matchScore     Int?
+  matchBreakdown Json?
+
+  status SavedJobStatus @default(SAVED)
+  notes  String?         @db.Text
+
+  savedAt         DateTime @default(now())
+  statusUpdatedAt DateTime @default(now())
+
+  @@unique([userId, sourceUrl])
+  @@index([userId])
+  @@index([userId, status])
+  @@map("saved_jobs")
+}
+
+// ---------------------------------------------------------------------------
+// AI Career Coach — an open-ended, ongoing Q&A conversation, deliberately
+// NOT stored in `ChatMessage`: that table backs the fixed 10-topic
+// onboarding interview, and `analyzeUser` derives which topic to ask next
+// from the *count* of covered topics plus feeds the *entire* history back
+// into the prompt — mixing unrelated Coach turns into that stream would
+// desync topic detection and pollute the interview's own context. Coach
+// messages are their own flat per-user stream instead, same shape as
+// `ChatMessage` on purpose (id/userId/role/content/createdAt) plus
+// `suggestedActions`, a snapshot of the deterministic action list computed
+// for that specific assistant reply (see `coach.service.ts`) — never
+// recomputed retroactively, so history stays consistent with what was
+// actually shown at the time.
+// ---------------------------------------------------------------------------
+
+enum CoachMessageRole {
+  USER
+  ASSISTANT
+}
+
+model CoachMessage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role             CoachMessageRole
+  content          String           @db.Text
+  suggestedActions Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("coach_messages")
+}
+
+/// A small append-only list of meaningful career preferences the Coach
+/// extracted from free-form conversation (e.g. "prefers less client-facing
+/// work") — deliberately NOT merged into `Profile.strengths`/`weaknesses`/
+/// `personalitySummary`, which the onboarding chat's `analyzeUser` already
+/// owns and overwrites topic-by-topic; writing here too would risk the two
+/// flows clobbering each other. Only meaningful facts are stored (never
+/// every sentence), fed back into later Coach replies as grounding context.
+model CoachMemoryFact {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fact String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("coach_memory_facts")
+}

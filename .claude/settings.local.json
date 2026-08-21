@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "PowerShell(npx --version)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(Get-Command node -ErrorAction SilentlyContinue; Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\npm\" -ErrorAction SilentlyContinue; $env:Path -split ';' | Select-String -Pattern 'node')",
+      "PowerShell($env:Path += \";C:\\\\Program Files\\\\nodejs\"; npm run lint)",
+      "PowerShell($env:Path += \";C:\\\\Program Files\\\\nodejs\"; npx tsc --noEmit)",
+      "PowerShell($env:Path += \";C:\\\\Program Files\\\\nodejs\"; npm run build)",
+      "PowerShell(docker version 2>&1)",
+      "PowerShell(Start-Process -FilePath \"wsl.exe\" -ArgumentList \"--install\" -Verb RunAs)"
+    ]
+  }
+}
