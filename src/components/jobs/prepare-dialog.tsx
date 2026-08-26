@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RotateCw, ArrowRight } from "lucide-react";
+import { RotateCw, ArrowRight, FileEdit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,17 @@ export function PrepareDialog({ open, onOpenChange, vacancy, loading, error, dat
                       ))}
                     </div>
                   )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    nativeButton={false}
+                    render={
+                      <Link href="/dashboard/resume">
+                        <FileEdit />
+                        {dict.dashboard.quickActions.updateResume}
+                      </Link>
+                    }
+                  />
                 </>
               ) : (
                 <div className="space-y-2">

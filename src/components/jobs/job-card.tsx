@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { ExternalLink, MessageSquareText, FileEdit, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, MapPin, GraduationCap, Check, Triangle } from "lucide-react";
+import { ExternalLink, MessageSquareText, FileEdit, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, MapPin, GraduationCap, Check, Triangle, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,22 +48,22 @@ export function JobCard({ item, saved, onSave, onPrepare }: JobCardProps) {
   const canOpen = isSafeExternalUrl(vacancy.sourceUrl);
 
   return (
-    <Card className="hover-lift">
+    <Card size="sm" className="hover-lift">
       <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-        <div className="min-w-0 space-y-1">
-          <CardTitle className="truncate text-base">{vacancy.title}</CardTitle>
-          <p className="text-muted-foreground truncate text-sm">{vacancy.company}</p>
+        <div className="min-w-0 space-y-0.5">
+          <CardTitle className="truncate">{vacancy.title}</CardTitle>
+          <p className="text-muted-foreground truncate text-xs">{vacancy.company}</p>
         </div>
         <motion.span
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`shrink-0 text-lg font-bold ${scoreColor(match.score)}`}
+          className={`shrink-0 text-base font-bold ${scoreColor(match.score)}`}
         >
           {match.score}%
         </motion.span>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2.5">
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           {vacancy.workFormat === "REMOTE" ? (
             <span className="flex items-center gap-1">
@@ -95,44 +96,44 @@ export function JobCard({ item, saved, onSave, onPrepare }: JobCardProps) {
           {page.card.sourceLabelTemplate.replace("{source}", vacancy.isSearchLink ? page.card.sourceDemo : page.card.sourceHh)}
         </p>
 
-        {match.positiveFraming && <p className="text-sm text-emerald-700 dark:text-emerald-400">{page.card.positiveFraming}</p>}
-        {match.roadmapPrioritySkill && (
-          <p className="text-primary text-sm">{page.card.roadmapPriorityTemplate.replace("{skill}", match.roadmapPrioritySkill)}</p>
-        )}
-
-        {(match.matchedSkills.length > 0 || match.missingSkills.length > 0) && (
-          <div className="space-y-1.5">
-            {match.matchedSkills.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-muted-foreground text-xs">{page.card.matchedSkillsLabel}:</span>
-                {match.matchedSkills.map((s) => (
-                  <Badge key={s} variant="secondary" className="gap-1">
-                    <Check className="size-3" />
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {match.missingSkills.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-muted-foreground text-xs">{page.card.missingSkillsLabel}:</span>
-                {match.missingSkills.map((s) => (
-                  <Badge key={s} variant="outline" className="gap-1">
-                    <Triangle className="size-3" />
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <button type="button" onClick={() => setExpanded((v) => !v)} className="text-muted-foreground flex items-center gap-1 text-xs hover:underline">
           {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
           {page.matchBreakdown.title}
         </button>
         {expanded && (
           <div className="space-y-3">
+            {match.positiveFraming && <p className="text-sm text-emerald-700 dark:text-emerald-400">{page.card.positiveFraming}</p>}
+            {match.roadmapPrioritySkill && (
+              <p className="text-primary text-sm">{page.card.roadmapPriorityTemplate.replace("{skill}", match.roadmapPrioritySkill)}</p>
+            )}
+
+            {(match.matchedSkills.length > 0 || match.missingSkills.length > 0) && (
+              <div className="space-y-1.5">
+                {match.matchedSkills.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-muted-foreground text-xs">{page.card.matchedSkillsLabel}:</span>
+                    {match.matchedSkills.map((s) => (
+                      <Badge key={s} variant="secondary" className="gap-1">
+                        <Check className="size-3" />
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {match.missingSkills.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-muted-foreground text-xs">{page.card.missingSkillsLabel}:</span>
+                    {match.missingSkills.map((s) => (
+                      <Badge key={s} variant="outline" className="gap-1">
+                        <Triangle className="size-3" />
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
               {(["skills", "experience", "location", "careerGoal", "salary"] as const).map((key) => (
                 <div key={key} className="flex justify-between gap-2 sm:flex-col sm:gap-0.5">
@@ -182,6 +183,19 @@ export function JobCard({ item, saved, onSave, onPrepare }: JobCardProps) {
             <FileEdit />
             {page.card.improveResumeCta}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/dashboard/coach?ask=${encodeURIComponent(page.card.discussQuestionTemplate.replace("{title}", vacancy.title).replace("{company}", vacancy.company))}`}
+              >
+                <Sparkles />
+                {page.card.discussCta}
+              </Link>
+            }
+          />
           <Button size="sm" variant={saved ? "secondary" : "outline"} onClick={onSave} disabled={saved}>
             <AnimatePresence mode="wait" initial={false}>
               <motion.span

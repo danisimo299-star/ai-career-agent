@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { motion } from "motion/react";
 import { Sparkles, RotateCw, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -22,7 +23,7 @@ interface RoadmapViewProps {
   suggestedCareerTitle: string | null;
 }
 
-type ErrorKind = "generic" | "ai_invalid_response" | "invalid_input" | null;
+type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "invalid_input" | null;
 
 export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle }: RoadmapViewProps) {
   const { dict } = useLocale();
@@ -40,6 +41,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
 
   const errorMessage = (kind: ErrorKind) => {
     if (kind === "ai_invalid_response") return page.errorAiInvalid;
+    if (kind === "ai_unavailable") return dict.common.aiUnavailable;
     if (kind === "invalid_input") return page.errorGeneration;
     return page.errorGeneration;
   };
@@ -117,7 +119,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
   if (!roadmap) {
     return (
       <div className="space-y-6">
-        <PageHeader title={page.title} description={page.subtitle} />
+        <PageHeader title={page.title} description={page.subtitle} icon={Map} tone="roadmap" />
         <div className="bg-roadmap-tint space-y-6 rounded-3xl p-4 sm:p-6">
           <EmptyState icon={Map} title={page.emptyTitle} description={page.emptyDescription} />
           <div className="flex flex-col items-center gap-3">
@@ -152,7 +154,12 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
       : null;
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <RoadmapHeader
         careerTitle={roadmap.careerTitle}
         careerScore={careerScore}
@@ -192,6 +199,6 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
           generate(roadmap.careerTitle);
         }}
       />
-    </div>
+    </motion.div>
   );
 }

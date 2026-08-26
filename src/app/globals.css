@@ -43,6 +43,22 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-tool-chat: var(--tool-chat);
+  --color-tool-profile: var(--tool-profile);
+  --color-tool-roadmap: var(--tool-roadmap);
+  --color-tool-tasks: var(--tool-tasks);
+  --color-tool-resume: var(--tool-resume);
+  --color-tool-interview: var(--tool-interview);
+  --color-tool-jobs: var(--tool-jobs);
+  --color-tool-chat-solid: var(--tool-chat-solid);
+  --color-tool-profile-solid: var(--tool-profile-solid);
+  --color-tool-roadmap-solid: var(--tool-roadmap-solid);
+  --color-tool-tasks-solid: var(--tool-tasks-solid);
+  --color-tool-resume-solid: var(--tool-resume-solid);
+  --color-tool-interview-solid: var(--tool-interview-solid);
+  --color-tool-jobs-solid: var(--tool-jobs-solid);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -56,100 +72,145 @@
 }
 
 :root {
-  /* Soft off-white page base so white `--card` surfaces read as a
-     deliberate elevation layer instead of blending into the page. */
-  --background: oklch(0.985 0.003 277);
+  /* Black / white / gray is the theme system itself now — color lives only
+     in small per-feature icon accents (see the --tool-* tokens below), not
+     in background/card/border/primary. */
+  --background: oklch(0.99 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* A real accent (indigo) instead of the default shadcn grayscale-only
-     primary — everything else (background/card/border/muted) stays
-     neutral on purpose, so the accent reads as intentional, not
-     decorative. ~70-80% of the UI is still pure gray; primary/ring/focus/
-     active-nav is the ~5-10% accent. */
-  --primary: oklch(0.511 0.262 276.966);
+  /* Primary is the neutral "ink" accent — near-black on white, inverted in
+     dark mode — used for buttons/progress/focus/active-nav. Not a brand
+     hue; that's what the --tool-* tokens are for. */
+  --primary: oklch(0.145 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.958 0.02 277);
-  --accent-foreground: oklch(0.511 0.262 276.966);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.95 0 0);
+  --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.596 0.145 163.225);
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.646 0.169 68.973);
   --warning-foreground: oklch(0.145 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.511 0.262 276.966);
+  --info: oklch(0.58 0.16 232);
+  --info-foreground: oklch(0.985 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.145 0 0);
   --chart-1: oklch(0.511 0.262 276.966);
   --chart-2: oklch(0.596 0.145 163.225);
   --chart-3: oklch(0.646 0.169 68.973);
   --chart-4: oklch(0.577 0.245 27.325);
   --chart-5: oklch(0.556 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: oklch(0.975 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.511 0.262 276.966);
+  --sidebar-primary: oklch(0.145 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.958 0.02 277);
-  --sidebar-accent-foreground: oklch(0.511 0.262 276.966);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.511 0.262 276.966);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.145 0 0);
 
-  --elevation-card: 0 1px 2px oklch(0 0 0 / 6%);
-  --elevation-card-hover: 0 8px 20px -6px oklch(0 0 0 / 12%);
-  --elevation-featured: 0 10px 30px -8px oklch(0.511 0.262 276.966 / 22%);
-  --gradient-coach: linear-gradient(135deg, oklch(0.958 0.02 277) 0%, oklch(0.94 0.035 285) 100%);
-  --gradient-roadmap: linear-gradient(180deg, oklch(0.97 0.012 200) 0%, oklch(0.99 0.004 277) 100%);
+  /* Small per-feature icon accents — used ONLY for icon badges (page
+     headers, sidebar/dashboard tool links), never for backgrounds,
+     buttons, borders, or progress. */
+  --tool-chat: oklch(0.52 0.2 300);
+  --tool-profile: oklch(0.55 0.18 250);
+  --tool-roadmap: oklch(0.55 0.14 220);
+  --tool-tasks: oklch(0.596 0.145 163.225);
+  --tool-resume: oklch(0.646 0.169 68.973);
+  --tool-interview: oklch(0.5 0.2 320);
+  --tool-jobs: oklch(0.55 0.11 185);
+
+  /* Solid icon-tile fills (icon-badge background + white glyph) — a fixed,
+     medium-lightness shade of each tool color, deliberately NOT redefined
+     in .dark, so the tile itself reads the same vivid color in either
+     theme instead of washing out to a pale tint against a dark page. Used
+     for the small square icon tiles (page headers, dashboard rows), never
+     for a whole card/section background. */
+  --tool-chat-solid: oklch(0.5 0.2 300);
+  --tool-profile-solid: oklch(0.53 0.19 255);
+  --tool-roadmap-solid: oklch(0.56 0.15 220);
+  --tool-tasks-solid: oklch(0.56 0.15 163);
+  --tool-resume-solid: oklch(0.6 0.17 55);
+  --tool-interview-solid: oklch(0.5 0.2 320);
+  --tool-jobs-solid: oklch(0.52 0.13 185);
+
+  --elevation-card: 0 1px 2px oklch(0 0 0 / 5%), 0 4px 12px -6px oklch(0 0 0 / 8%);
+  --elevation-card-hover: 0 10px 24px -8px oklch(0 0 0 / 16%);
+  --elevation-featured: 0 10px 28px -8px oklch(0 0 0 / 18%);
+  --gradient-coach: linear-gradient(135deg, oklch(0.97 0 0) 0%, oklch(0.93 0 0) 100%);
+  --gradient-roadmap: linear-gradient(180deg, oklch(0.98 0 0) 0%, oklch(0.99 0 0) 100%);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  /* Same indigo hue as light mode, lifted in lightness for AA contrast against a dark background — not a flat inversion. */
-  --primary: oklch(0.673 0.182 276.935);
+  /* A near-black base with a very slight violet-blue cast (chroma ~0.012,
+     hue 280 — the same family as the AI/chat accent) instead of a flat
+     achromatic gray. Still reads as "black", not as a colored theme —
+     foreground stays pure white for contrast — but it stops the page from
+     looking like a plain grayscale mockup. */
+  --background: oklch(0.09 0.012 280);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.16 0.014 280);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.16 0.014 280);
+  --popover-foreground: oklch(0.98 0 0);
+  /* Primary flips to near-white — "white background, dark text" buttons,
+     white progress rings/fills, white focus rings, white active-nav
+     indicator. */
+  --primary: oklch(0.96 0 0);
   --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0.03 277);
-  --accent-foreground: oklch(0.85 0.1 277);
+  --secondary: oklch(0.21 0.014 280);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.21 0.014 280);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.23 0.016 280);
+  --accent-foreground: oklch(0.96 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.696 0.17 162.48);
   --success-foreground: oklch(0.145 0 0);
   --warning: oklch(0.769 0.188 70.08);
   --warning-foreground: oklch(0.145 0 0);
+  --info: oklch(0.72 0.15 232);
+  --info-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.673 0.182 276.935);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.9 0 0);
   --chart-1: oklch(0.673 0.182 276.935);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.704 0.191 22.216);
   --chart-5: oklch(0.708 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.673 0.182 276.935);
+  /* Slightly darker than the page background — the sidebar reads as its
+     own recessed panel, not another card. */
+  --sidebar: oklch(0.065 0.012 280);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.96 0 0);
   --sidebar-primary-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.269 0.03 277);
-  --sidebar-accent-foreground: oklch(0.85 0.1 277);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.673 0.182 276.935);
+  --sidebar-accent: oklch(0.19 0.014 280);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.9 0 0);
 
-  --elevation-card: 0 1px 2px oklch(0 0 0 / 30%);
-  --elevation-card-hover: 0 8px 24px -6px oklch(0 0 0 / 45%);
-  --elevation-featured: 0 10px 32px -8px oklch(0.673 0.182 276.935 / 30%);
-  --gradient-coach: linear-gradient(135deg, oklch(0.269 0.03 277) 0%, oklch(0.24 0.045 290) 100%);
-  --gradient-roadmap: linear-gradient(180deg, oklch(0.22 0.02 200) 0%, oklch(0.19 0.005 277) 100%);
+  --tool-chat: oklch(0.72 0.16 300);
+  --tool-profile: oklch(0.72 0.14 250);
+  --tool-roadmap: oklch(0.75 0.11 220);
+  --tool-tasks: oklch(0.696 0.17 162.48);
+  --tool-resume: oklch(0.769 0.188 70.08);
+  --tool-interview: oklch(0.72 0.16 320);
+  --tool-jobs: oklch(0.72 0.09 185);
+
+  --elevation-card: 0 1px 2px oklch(0 0 0 / 35%);
+  --elevation-card-hover: 0 10px 26px -6px oklch(0 0 0 / 50%);
+  --elevation-featured: 0 12px 32px -8px oklch(0 0 0 / 45%);
+  --gradient-coach: linear-gradient(135deg, oklch(0.22 0 0) 0%, oklch(0.18 0 0) 100%);
+  --gradient-roadmap: linear-gradient(180deg, oklch(0.16 0 0) 0%, oklch(0.13 0 0) 100%);
 }
 
 @layer base {
@@ -181,9 +242,44 @@
     background-image: var(--gradient-roadmap);
   }
 
+  /* A faint starfield tile, nodding at the Sparkles logomark — a handful of
+     small dots at fixed pseudo-random positions (never regenerated, so the
+     tile seam never shifts between renders), not a randomized/noisy
+     texture. Deliberately sparse (12 dots per tile, not 30) — the first
+     pass was dense enough to read as visual noise even at low opacity.
+     Two literal SVGs (white dots for dark, near-black for light) rather
+     than a `filter: invert()` trick — filter applies to the whole
+     element's rendered output, not just one background layer, so it would
+     have inverted every color of every child on the page, not just the
+     dots. Static — no drift/twinkle animation, since motion catches the
+     eye far more than opacity does at this scale. Light mode needs a
+     HIGHER opacity than dark mode to be visible at all (small near-black
+     dots on white have much less perceptual contrast than small white
+     dots on near-black), not a lower one. */
+  .page-depth {
+    background-image:
+      radial-gradient(70% 50% at 15% 0%, color-mix(in oklch, var(--tool-chat) 5%, transparent), transparent 65%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Ccircle cx='30' cy='40' r='1.1' fill='black' opacity='0.55'/%3E%3Ccircle cx='140' cy='25' r='0.8' fill='black' opacity='0.38'/%3E%3Ccircle cx='230' cy='60' r='1.0' fill='black' opacity='0.55'/%3E%3Ccircle cx='70' cy='110' r='0.7' fill='black' opacity='0.38'/%3E%3Ccircle cx='190' cy='130' r='1.1' fill='black' opacity='0.55'/%3E%3Ccircle cx='20' cy='170' r='0.8' fill='black' opacity='0.38'/%3E%3Ccircle cx='120' cy='195' r='0.7' fill='black' opacity='0.38'/%3E%3Ccircle cx='240' cy='215' r='1.0' fill='black' opacity='0.55'/%3E%3Ccircle cx='60' cy='235' r='0.8' fill='black' opacity='0.38'/%3E%3Ccircle cx='175' cy='245' r='0.7' fill='black' opacity='0.38'/%3E%3Ccircle cx='100' cy='75' r='0.6' fill='black' opacity='0.38'/%3E%3Ccircle cx='215' cy='20' r='0.7' fill='black' opacity='0.38'/%3E%3C/svg%3E");
+    background-repeat: no-repeat, repeat;
+    background-size: auto, 320px 320px;
+    background-position: 0 0, 0 0;
+    background-attachment: fixed;
+  }
+  .dark .page-depth {
+    background-image:
+      radial-gradient(70% 50% at 15% 0%, color-mix(in oklch, var(--tool-chat) 9%, transparent), transparent 65%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Ccircle cx='30' cy='40' r='1.1' fill='white' opacity='0.28'/%3E%3Ccircle cx='140' cy='25' r='0.8' fill='white' opacity='0.16'/%3E%3Ccircle cx='230' cy='60' r='1.0' fill='white' opacity='0.28'/%3E%3Ccircle cx='70' cy='110' r='0.7' fill='white' opacity='0.16'/%3E%3Ccircle cx='190' cy='130' r='1.1' fill='white' opacity='0.28'/%3E%3Ccircle cx='20' cy='170' r='0.8' fill='white' opacity='0.16'/%3E%3Ccircle cx='120' cy='195' r='0.7' fill='white' opacity='0.16'/%3E%3Ccircle cx='240' cy='215' r='1.0' fill='white' opacity='0.28'/%3E%3Ccircle cx='60' cy='235' r='0.8' fill='white' opacity='0.16'/%3E%3Ccircle cx='175' cy='245' r='0.7' fill='white' opacity='0.16'/%3E%3Ccircle cx='100' cy='75' r='0.6' fill='white' opacity='0.16'/%3E%3Ccircle cx='215' cy='20' r='0.7' fill='white' opacity='0.16'/%3E%3C/svg%3E");
+    background-repeat: no-repeat, repeat;
+    background-size: auto, 320px 320px;
+    background-position: 0 0, 0 0;
+  }
+
   /* "AI is active here" — a slow, faint glow, never a flashy neon pulse.
      One radial highlight behind the content, breathing between two very
-     close opacity values. Respects reduced-motion. */
+     close opacity values. Tinted with the AI/chat accent hue at low opacity
+     — enough to actually read as a glow (a pure grayscale tint at this
+     opacity is nearly invisible on a light background), still far short of
+     a colored card background. */
   .ambient-ai {
     position: relative;
     isolation: isolate;
@@ -194,16 +290,144 @@
     inset: -1px;
     z-index: -1;
     border-radius: inherit;
-    background: radial-gradient(120% 120% at 15% 0%, oklch(0.511 0.262 276.966 / 12%), transparent 60%);
+    background: radial-gradient(120% 120% at 15% 0%, color-mix(in oklch, var(--tool-chat) 14%, transparent), transparent 60%);
     animation: ambient-ai-breathe 5s ease-in-out infinite;
-  }
-  .dark .ambient-ai::before {
-    background: radial-gradient(120% 120% at 15% 0%, oklch(0.673 0.182 276.935 / 16%), transparent 60%);
   }
   @media (prefers-reduced-motion: reduce) {
     .ambient-ai::before {
       animation: none;
     }
+  }
+
+  /* "ProfyMind Glow" — a soft, blurred light pool behind the Hero, not a
+     gradient rectangle. A faint AI-accent tint (violet), not full brand
+     color — enough presence to read as "alive" without becoming a colored
+     card background. Only ever used on elements with `overflow-hidden`
+     (Card already clips) — the oversized `inset: -20%` box otherwise
+     inflates an unclipped ancestor's scrollable area (see chat-panel.tsx's
+     history: this exact class caused that bug there, which is why it was
+     removed from ChatPanel specifically). Drifts very slowly so the
+     background reads as quietly alive rather than static — respects
+     reduced-motion. */
+  .profymind-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .profymind-glow::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(55% 60% at 20% 10%, color-mix(in oklch, var(--tool-chat) 22%, transparent), transparent 72%);
+    filter: blur(50px);
+    animation: profymind-glow-drift 14s ease-in-out infinite;
+  }
+  /* A slim diagonal sheen — the visible "beam", distinct from the soft
+     radial pool above it. Sweeps across once every cycle instead of
+     sitting still. */
+  .profymind-glow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in oklch, var(--tool-chat) 16%, transparent) 48%,
+      color-mix(in oklch, var(--foreground) 10%, transparent) 52%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: profymind-sheen-sweep 9s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .profymind-glow::before,
+    .profymind-glow::after {
+      animation: none;
+    }
+  }
+
+  /* A thin, static divider line under a heading — not an animated sweep. */
+  .accent-line {
+    position: relative;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+
+  /* Chat composer — an elevated surface with a thin border that appears
+     ONLY on focus (no constant glow at rest). */
+  .composer-shell {
+    position: relative;
+    isolation: isolate;
+  }
+  .composer-shell::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--primary);
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .composer-shell:focus-within::before {
+    opacity: 0.6;
+  }
+
+  /* The Hero ring's fill-in-on-mount animation (see `ProgressRing`). */
+  .progress-ring-fill {
+    transition: stroke-dashoffset 1000ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .progress-ring-fill {
+      transition: none;
+    }
+  }
+
+  /* A halo, not a filled glow — transparent at the very center (where the
+     white percent text sits) and transparent again past the ring's own
+     edge, so the color only ever shows in a faint band tracing the arc
+     itself. Neutral (matches --primary, i.e. white in dark mode). */
+  .progress-ring-glow::before {
+    content: "";
+    position: absolute;
+    inset: -18%;
+    z-index: -1;
+    border-radius: 999px;
+    background: radial-gradient(circle, transparent 52%, color-mix(in oklch, var(--primary) 22%, transparent) 66%, transparent 84%);
+  }
+
+  /* Secondary card surface — deliberately nearly blends into the page
+     background (unlike the primary `--card` surface), for content that
+     should feel like part of the page rather than its own elevated block. */
+  .card-surface-2 {
+    background-color: color-mix(in oklch, var(--card) 55%, var(--background) 45%);
+  }
+
+  /* Shared hover contract for interactive cards: border brightens, a 1-2px
+     lift, and a faint background shift — all within 150-220ms, per the
+     visual-polish brief (never a bouncy or dramatic hover). */
+  .card-interactive {
+    transition:
+      transform 200ms ease-out,
+      box-shadow 200ms ease-out,
+      border-color 200ms ease-out,
+      background-color 200ms ease-out;
+  }
+  .card-interactive:hover {
+    transform: translateY(-1.5px);
+    box-shadow: var(--elevation-card-hover);
+    border-color: var(--ring);
+    background-color: var(--accent);
   }
 }
 
@@ -214,5 +438,26 @@
   }
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes profymind-glow-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(6%, 4%) scale(1.1);
+  }
+}
+
+@keyframes profymind-sheen-sweep {
+  0%,
+  15% {
+    background-position: 100% 0;
+  }
+  55%,
+  100% {
+    background-position: -20% 0;
   }
 }

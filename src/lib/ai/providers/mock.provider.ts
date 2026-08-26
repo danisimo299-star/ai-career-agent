@@ -25,4 +25,13 @@ export class MockAIProvider implements AIProvider {
       model: "mock-1",
     };
   }
+
+  async *stream(messages: AIMessage[]): AsyncIterable<string> {
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    const text = `[mock reply] ${lastUserMessage?.content ?? "Hello!"}`;
+    const words = text.split(" ");
+    for (const word of words) {
+      yield `${word} `;
+    }
+  }
 }

@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, TrendingUp, Gauge, Briefcase } from "lucide-react";
+import { Clock, TrendingUp, Gauge, Briefcase, Sparkles } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 export interface RecommendationData {
   id: string;
@@ -26,7 +27,12 @@ export function RecommendationCard({ recommendation, rank }: { recommendation: R
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+          <span
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+              rank === 1 ? "bg-tool-resume-solid text-white" : "bg-secondary text-foreground"
+            )}
+          >
             {rank}
           </span>
           <CardTitle className="text-base">{recommendation.title}</CardTitle>
@@ -61,18 +67,32 @@ export function RecommendationCard({ recommendation, rank }: { recommendation: R
           </div>
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full"
-          nativeButton={false}
-          render={
-            <Link href={`/dashboard/jobs?role=${encodeURIComponent(recommendation.title)}`}>
-              <Briefcase />
-              {page.findJobsCta}
-            </Link>
-          }
-        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            nativeButton={false}
+            render={
+              <Link href={`/dashboard/jobs?role=${encodeURIComponent(recommendation.title)}`}>
+                <Briefcase />
+                {page.findJobsCta}
+              </Link>
+            }
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            nativeButton={false}
+            render={
+              <Link href={`/dashboard/coach?ask=${encodeURIComponent(page.discussQuestionTemplate.replace("{title}", recommendation.title))}`}>
+                <Sparkles />
+                {page.discussCta}
+              </Link>
+            }
+          />
+        </div>
       </CardContent>
     </Card>
   );

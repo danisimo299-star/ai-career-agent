@@ -20,16 +20,19 @@ import { computeApplicationAnalytics, type ApplicationAnalyticsResult } from "@/
 import { computeCareerPlan, type CareerPlanResult } from "@/lib/career/career-plan";
 import { compareCareerScenarios, type CareerScenarioResult } from "@/lib/career/career-scenarios";
 import { professionCatalog } from "@/lib/ai/career/mock-data";
-import { stripCoachDisplayMarkers } from "@/lib/ai/career/mock-coach";
 import { findTopMissingSkillAcrossSavedJobs } from "@/lib/career/coach-insights";
 import { isResumeContentMeaningful, type ResumeContent } from "@/types";
-import type { CoachIntent, CoachContextSnapshot } from "@/lib/ai/career/types";
+import type { CoachIntent, CoachContextSnapshot, ProfileSnapshot } from "@/lib/ai/career/types";
 
 export interface CoachActionSuggestion {
   labelKey: string;
   href: string;
   count?: number;
 }
+
+export type CoachStreamMessageEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; suggestedActions: CoachActionSuggestion[]; memoryNoted: boolean };
 
 function buildIntentActions(intent: CoachIntent, snapshot: CoachContextSnapshot): CoachActionSuggestion[] {
   switch (intent) {
@@ -141,6 +144,46 @@ function toContextSnapshot(data: Awaited<ReturnType<typeof loadRawData>>): Coach
   };
 }
 
+/**
+ * What `streamCoachReply` gets when the user has turned off "use my career
+ * profile in AI replies" (Settings → ProfyMind). `toContextSnapshot` above
+ * is untouched and still used for everything else (dashboard, the Coach's
+ * own Overview/Skill Gap tabs, the proactive insight banner) — this only
+ * ever substitutes for what's actually sent to the model.
+ */
+const BLANK_CONTEXT_SNAPSHOT: CoachContextSnapshot = {
+  name: null,
+  age: null,
+  targetRole: null,
+  city: null,
+  experienceLevel: null,
+  educationStage: null,
+  salaryExpectation: null,
+  careerReadiness: null,
+  skillGapPercent: null,
+  topMissingSkills: [],
+  matchedSkills: [],
+  resumeScore: null,
+  interviewAverageScore: null,
+  applications: 0,
+  interviews: 0,
+  offers: 0,
+  savedJobsCount: 0,
+  matchingJobsCount: 0,
+  nextActionTitle: null,
+  careerPreferences: [],
+  careerPriorities: [],
+  proactiveInsight: null,
+};
+
+const BLANK_PROFILE_SNAPSHOT: ProfileSnapshot = {
+  interests: [],
+  skills: [],
+  goals: [],
+  strengths: [],
+  weaknesses: [],
+};
+
 function computeReadinessFromRawData(data: Awaited<ReturnType<typeof loadRawData>>): ReadinessResult {
   const matchingRecommendation = data.recommendations.find((r) => r.title === data.targetRole);
 
@@ -241,26 +284,91 @@ export const coachService = {
     return coachRepository.listByUser(userId);
   },
 
-  async sendMessage(userId: string, locale: Locale, message: string) {
+  async clearHistory(userId: string) {
+    await coachRepository.deleteAllForUser(userId);
+  },
+
+  async *streamMessage(userId: string, locale: Locale, message: string, signal?: AbortSignal): AsyncGenerator<CoachStreamMessageEvent> {
     const [data, recentHistory] = await Promise.all([loadRawData(userId, locale), coachRepository.recentByUser(userId, 10)]);
-    const snapshot = toContextSnapshot(data);
 
     await coachRepository.append(userId, "USER", message);
 
     const history = recentHistory.map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
 
-    const profileSnapshot = { ...toProfileSnapshot(data.profile), skills: data.userSkills };
-    const result = await getAICareerService().generateCoachReply({ locale, profile: profileSnapshot, snapshot, history, message });
+    yield* streamReplyAndPersist(userId, locale, data, history, message, signal);
+  },
 
-    const suggestedActions = buildIntentActions(result.intent, snapshot);
-    await coachRepository.append(userId, "ASSISTANT", result.reply, suggestedActions as unknown as Prisma.InputJsonValue);
+  /**
+   * Re-answers the last user message with a fresh reply instead of the one
+   * just given — no new user turn is persisted (that would look like the
+   * user retyped their question), and the discarded assistant reply is
+   * deleted before the new one is generated, so history never shows two
+   * answers to the same question.
+   */
+  async *regenerateLastReply(userId: string, locale: Locale, signal?: AbortSignal): AsyncGenerator<CoachStreamMessageEvent> {
+    const [data, recentHistory] = await Promise.all([loadRawData(userId, locale), coachRepository.recentByUser(userId, 11)]);
+
+    const last = recentHistory[recentHistory.length - 1];
+    if (!last || last.role !== "ASSISTANT") return;
+    const withoutLast = recentHistory.slice(0, -1);
+    const lastUserMessage = withoutLast[withoutLast.length - 1];
+    if (!lastUserMessage || lastUserMessage.role !== "USER") return;
+
+    await coachRepository.deleteMessage(last.id);
+
+    const history = withoutLast
+      .slice(0, -1)
+      .map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content }));
+
+    yield* streamReplyAndPersist(userId, locale, data, history, lastUserMessage.content, signal);
+  },
+};
+
+async function* streamReplyAndPersist(
+  userId: string,
+  locale: Locale,
+  data: Awaited<ReturnType<typeof loadRawData>>,
+  history: { role: "user" | "assistant"; content: string }[],
+  message: string,
+  signal?: AbortSignal
+): AsyncGenerator<CoachStreamMessageEvent> {
+  const snapshot = toContextSnapshot(data);
+  const profileSnapshot = { ...toProfileSnapshot(data.profile), skills: data.userSkills };
+
+  // Both are real Settings-page toggles (Settings → ProfyMind), not
+  // decorative — see the Profile model comment. `snapshot` above is still
+  // used as-is for `buildIntentActions` below (suggested-action buttons are
+  // deterministic UI, not the model's own text, so the preference doesn't
+  // apply to them); only what's handed to the model is substituted.
+  const useProfile = data.profile?.aiUseProfileContext ?? true;
+  const rememberHistory = data.profile?.aiRememberHistory ?? true;
+  const replyStyle = data.profile?.aiReplyStyle ?? "BALANCED";
+
+  const promptContext = {
+    locale,
+    profile: useProfile ? profileSnapshot : BLANK_PROFILE_SNAPSHOT,
+    snapshot: useProfile ? snapshot : BLANK_CONTEXT_SNAPSHOT,
+    history: rememberHistory ? history : [],
+    message,
+    replyStyle,
+    signal,
+  };
+
+  for await (const event of getAICareerService().streamCoachReply(promptContext)) {
+    if (event.type === "delta") {
+      yield event;
+      continue;
+    }
+
+    const suggestedActions = buildIntentActions(event.intent, snapshot);
+    await coachRepository.append(userId, "ASSISTANT", event.content, suggestedActions as unknown as Prisma.InputJsonValue);
 
     let memoryNoted = false;
-    if (result.memoryFact) {
-      const stored = await coachMemoryRepository.append(userId, result.memoryFact);
+    if (event.memoryFact) {
+      const stored = await coachMemoryRepository.append(userId, event.memoryFact);
       memoryNoted = stored !== null;
     }
 
-    return { reply: stripCoachDisplayMarkers(result.reply), intent: result.intent, suggestedActions, memoryNoted };
-  },
-};
+    yield { type: "done", suggestedActions, memoryNoted };
+  }
+}

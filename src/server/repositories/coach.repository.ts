@@ -16,6 +16,10 @@ export const coachRepository = {
 
   append: (userId: string, role: CoachMessageRole, content: string, suggestedActions?: Prisma.InputJsonValue) =>
     prisma.coachMessage.create({ data: { userId, role, content, suggestedActions } }),
+
+  deleteMessage: (id: string) => prisma.coachMessage.delete({ where: { id } }).catch(() => null),
+
+  deleteAllForUser: (userId: string) => prisma.coachMessage.deleteMany({ where: { userId } }),
 };
 
 const MAX_MEMORY_FACTS = 20;

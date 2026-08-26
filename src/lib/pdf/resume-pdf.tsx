@@ -1,6 +1,31 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import path from "node:path";
+import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import type { ResumeContent } from "@/types";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+/**
+ * `@react-pdf/renderer`'s built-in "Helvetica" is a PDF standard font with
+ * no Cyrillic glyphs at all — rendering Russian text with it doesn't throw,
+ * it silently produces invisible/garbled glyphs, which is exactly why
+ * downloaded resumes looked "empty" for the app's default (Russian) locale.
+ * PT Sans (SIL OFL 1.1, embedding/redistribution explicitly permitted — see
+ * `fonts/OFL.txt`) was designed by ParaType specifically for full Cyrillic +
+ * Latin coverage, and is registered once per process here so every PDF
+ * request reuses it instead of re-registering per render. `process.cwd()`
+ * resolves correctly both in `next dev` and in a standard Next.js server
+ * build, where these files are traced and bundled as local assets.
+ */
+const FONTS_DIR = path.join(process.cwd(), "src/lib/pdf/fonts");
+Font.register({
+  family: "PT Sans",
+  fonts: [
+    { src: path.join(FONTS_DIR, "PTSans-Regular.ttf"), fontWeight: "normal" },
+    { src: path.join(FONTS_DIR, "PTSans-Bold.ttf"), fontWeight: "bold" },
+    { src: path.join(FONTS_DIR, "PTSans-Italic.ttf"), fontStyle: "italic" },
+  ],
+});
+// Long unbroken strings (e.g. emails) otherwise never wrap inside a fixed-width PDF page.
+Font.registerHyphenationCallback((word) => [word]);
 
 type ResumeTemplate = "MODERN" | "PROFESSIONAL" | "MINIMAL";
 
@@ -16,12 +41,13 @@ function makeStyles(template: ResumeTemplate) {
     page: {
       padding: template === "MINIMAL" ? 40 : 32,
       fontSize: 10,
-      fontFamily: "Helvetica",
+      fontFamily: "PT Sans",
       color: colors.text,
     },
     name: {
       fontSize: template === "MODERN" ? 22 : 18,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "PT Sans",
+      fontWeight: "bold",
       color: colors.heading,
       marginBottom: 2,
     },
@@ -35,7 +61,8 @@ function makeStyles(template: ResumeTemplate) {
     contactItem: { marginRight: 10 },
     sectionTitle: {
       fontSize: 11,
-      fontFamily: "Helvetica-Bold",
+      fontFamily: "PT Sans",
+      fontWeight: "bold",
       color: template === "MINIMAL" ? colors.heading : colors.accent,
       marginTop: 12,
       marginBottom: 6,
@@ -45,7 +72,7 @@ function makeStyles(template: ResumeTemplate) {
     },
     entry: { marginBottom: 8 },
     entryHeaderRow: { flexDirection: "row", justifyContent: "space-between" },
-    entryTitle: { fontFamily: "Helvetica-Bold", fontSize: 10.5, color: colors.heading },
+    entryTitle: { fontFamily: "PT Sans", fontWeight: "bold", fontSize: 10.5, color: colors.heading },
     entrySubtitle: { fontSize: 9.5, color: colors.muted },
     entryDate: { fontSize: 9, color: colors.muted },
     bullet: { fontSize: 9.5, marginTop: 2, marginLeft: 8 },

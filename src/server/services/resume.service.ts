@@ -9,7 +9,7 @@ import { toProfileSnapshot } from "@/lib/ai/career/profile-snapshot";
 import { getAICareerService } from "@/lib/ai/career/get-career-service";
 import { careerScoreService } from "@/server/services/career-score.service";
 import { missionsService } from "@/server/services/missions.service";
-import { emptyResumeContent } from "@/types";
+import { emptyResumeContent, type ResumeContent } from "@/types";
 import type { ResumeSectionContext } from "@/lib/ai/career/types";
 
 export class ResumeAccessError extends Error {
@@ -105,5 +105,15 @@ export const resumeService = {
 
   async exportPdf(userId: string, resumeId: string) {
     return resumeService.getById(userId, resumeId);
+  },
+
+  /** "Проверить резюме" — reviews the resume's actual current content, not just the profile. */
+  async review(userId: string, resumeId: string, targetRole: string, locale: Locale) {
+    const resume = await resumeService.getById(userId, resumeId);
+    return getAICareerService().reviewResume({
+      locale,
+      targetRole,
+      content: resume.content as unknown as ResumeContent,
+    });
   },
 };

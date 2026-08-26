@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { MotionProvider } from "@/components/providers/motion-provider";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { siteConfig } from "@/config/site";
@@ -33,10 +34,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <LocaleProvider initialLocale={locale}>
-            {children}
-            <Toaster />
-          </LocaleProvider>
+          <MotionProvider>
+            <LocaleProvider initialLocale={locale}>
+              {children}
+              <Toaster />
+            </LocaleProvider>
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

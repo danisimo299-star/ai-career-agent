@@ -6,13 +6,15 @@ import {
   buildRoadmapPrompt,
   buildResumePrompt,
   buildResumeSectionPrompt,
+  buildResumeReviewPrompt,
   buildCareerMissionsPrompt,
   buildInterviewQuestionPrompt,
   buildInterviewAnswerEvaluationPrompt,
   buildInterviewReportPrompt,
   buildJobPreparationPrompt,
   buildJobSearchAssistantPrompt,
-  buildCoachReplyPrompt,
+  buildCoachSystemPrompt,
+  buildCoachMetaPrompt,
 } from "./prompts";
 import {
   analyzeUserResponseSchema,
@@ -21,13 +23,14 @@ import {
   roadmapResponseSchema,
   resumeDraftResponseSchema,
   resumeSectionResponseSchema,
+  resumeReviewResponseSchema,
   careerMissionsResponseSchema,
   interviewQuestionResponseSchema,
   interviewAnswerEvaluationResponseSchema,
   interviewReportResponseSchema,
   jobPreparationResponseSchema,
   jobSearchAssistantResponseSchema,
-  coachReplyResponseSchema,
+  coachMetaResponseSchema,
 } from "./response-schemas";
 import type {
   AICareerService,
@@ -41,6 +44,8 @@ import type {
   ResumeDraftResult,
   ResumeSectionContext,
   ResumeSectionSuggestion,
+  ResumeReviewContext,
+  ResumeReviewResult,
   CareerMissionsContext,
   CareerMissionsGenerationResult,
   InterviewQuestionContext,
@@ -54,7 +59,7 @@ import type {
   JobSearchAssistantContext,
   JobSearchAssistantResult,
   CoachReplyContext,
-  CoachReplyResult,
+  CoachStreamEvent,
 } from "./types";
 
 function parseJson<T>(raw: string, schema: { parse: (data: unknown) => T }, label: string): T {
@@ -81,10 +86,11 @@ export class LLMCareerService implements AICareerService {
     systemPrompt: string,
     schema: { parse: (data: unknown) => T },
     label: string,
-    conversation: AIMessage[] = []
+    conversation: AIMessage[] = [],
+    signal?: AbortSignal
   ): Promise<T> {
     const messages: AIMessage[] = [{ role: "system", content: systemPrompt }, ...conversation];
-    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6 });
+    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal });
     return parseJson(result.content, schema, label);
   }
 
@@ -94,11 +100,12 @@ export class LLMCareerService implements AICareerService {
   }
 
   async generateCareerRecommendations(input: CareerAnalysisContext): Promise<CareerRecommendationResult[]> {
-    return this.completeJson(
+    const result = await this.completeJson(
       buildCareerRecommendationsPrompt(input),
       careerRecommendationsResponseSchema,
       "generateCareerRecommendations"
     );
+    return result.recommendations;
   }
 
   async generateCareerInsights(input: CareerAnalysisContext): Promise<string[]> {
@@ -111,7 +118,8 @@ export class LLMCareerService implements AICareerService {
   }
 
   async generateRoadmap(input: RoadmapGenerationContext): Promise<RoadmapMilestoneResult[]> {
-    return this.completeJson(buildRoadmapPrompt(input), roadmapResponseSchema, "generateRoadmap");
+    const result = await this.completeJson(buildRoadmapPrompt(input), roadmapResponseSchema, "generateRoadmap");
+    return result.milestones;
   }
 
   async generateResume(input: ResumeGenerationContext): Promise<ResumeDraftResult> {
@@ -120,6 +128,16 @@ export class LLMCareerService implements AICareerService {
 
   async generateResumeSection(input: ResumeSectionContext): Promise<ResumeSectionSuggestion> {
     return this.completeJson(buildResumeSectionPrompt(input), resumeSectionResponseSchema, "generateResumeSection");
+  }
+
+  async reviewResume(input: ResumeReviewContext): Promise<ResumeReviewResult> {
+    const result = await this.completeJson(buildResumeReviewPrompt(input), resumeReviewResponseSchema, "reviewResume");
+    return {
+      ...result,
+      strengths: result.strengths.slice(0, 3),
+      improvements: result.improvements.slice(0, 3),
+      missing: result.missing.slice(0, 3),
+    };
   }
 
   async generateCareerMissions(input: CareerMissionsContext): Promise<CareerMissionsGenerationResult> {
@@ -154,7 +172,30 @@ export class LLMCareerService implements AICareerService {
     return this.completeJson(buildJobSearchAssistantPrompt(input), jobSearchAssistantResponseSchema, "parseJobSearchQuery");
   }
 
-  async generateCoachReply(input: CoachReplyContext): Promise<CoachReplyResult> {
-    return this.completeJson(buildCoachReplyPrompt(input), coachReplyResponseSchema, "generateCoachReply");
+  async *streamCoachReply(input: CoachReplyContext): AsyncIterable<CoachStreamEvent> {
+    const messages: AIMessage[] = [
+      { role: "system", content: buildCoachSystemPrompt(input) },
+      ...input.history.map((turn): AIMessage => ({ role: turn.role, content: turn.content })),
+      { role: "user", content: input.message },
+    ];
+
+    // Classification runs concurrently with the streamed reply — it doesn't
+    // depend on the reply text, so there's no reason to wait for the stream
+    // to finish before starting it. The extra `.catch` is only there so a
+    // rejection isn't "unhandled" if the stream loop below throws first and
+    // this promise is never awaited — the real error is still surfaced via
+    // `await metaPromise` on the line that actually needs its result.
+    const metaPromise = this.completeJson(buildCoachMetaPrompt(input), coachMetaResponseSchema, "streamCoachReply.meta", [], input.signal);
+    metaPromise.catch(() => {});
+
+    let content = "";
+    for await (const delta of this.provider.stream(messages, { temperature: 0.7, signal: input.signal })) {
+      if (!delta) continue;
+      content += delta;
+      yield { type: "delta", text: delta };
+    }
+
+    const meta = await metaPromise;
+    yield { type: "done", content, intent: meta.intent, memoryFact: meta.memoryFact };
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Clock, Target, Lightbulb, Sparkles, Lock } from "lucide-react";
 import {
   Sheet,
@@ -132,11 +133,24 @@ function MilestoneDetailContent({
           )}
         </div>
 
-        {milestone.status === "AVAILABLE" && (
-          <SheetFooter>
-            <Button onClick={() => onStartMilestone(milestone.id)} disabled={starting}>
-              {page.startMilestoneCta}
-            </Button>
+        {!isLocked && (
+          <SheetFooter className="flex-row gap-2">
+            {milestone.status === "AVAILABLE" && (
+              <Button className="flex-1" onClick={() => onStartMilestone(milestone.id)} disabled={starting}>
+                {page.startMilestoneCta}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="flex-1"
+              nativeButton={false}
+              render={
+                <Link href={`/dashboard/coach?ask=${encodeURIComponent(page.discussMilestoneQuestionTemplate.replace("{title}", milestone.title))}`}>
+                  <Sparkles />
+                  {page.discussMilestoneCta}
+                </Link>
+              }
+            />
           </SheetFooter>
         )}
       </SheetContent>

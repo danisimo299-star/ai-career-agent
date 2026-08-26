@@ -44,15 +44,15 @@ export function RoadmapTimeline({
             <span
               className={cn(
                 "absolute top-3 -left-[31px] flex size-4 items-center justify-center rounded-full border-2 bg-background",
-                milestone.status === "COMPLETED" && "border-primary bg-primary text-primary-foreground",
-                milestone.status === "IN_PROGRESS" && "border-primary",
+                milestone.status === "COMPLETED" && "border-tool-tasks bg-tool-tasks text-primary-foreground",
+                milestone.status === "IN_PROGRESS" && "border-tool-chat",
                 milestone.status === "AVAILABLE" && "border-muted-foreground/40",
                 milestone.status === "LOCKED" && "border-muted-foreground/20"
               )}
             >
               {isCurrent && (
                 <motion.span
-                  className="border-primary absolute inset-0 rounded-full border"
+                  className="border-tool-chat absolute inset-0 rounded-full border"
                   animate={{ scale: [1, 1.8], opacity: [0.6, 0] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
                 />
@@ -79,8 +79,8 @@ export function RoadmapTimeline({
                   <Icon
                     className={cn(
                       "size-5",
-                      milestone.status === "COMPLETED" && "text-primary",
-                      milestone.status === "IN_PROGRESS" && "text-primary",
+                      milestone.status === "COMPLETED" && "text-tool-tasks",
+                      milestone.status === "IN_PROGRESS" && "text-tool-chat",
                       milestone.status !== "COMPLETED" && milestone.status !== "IN_PROGRESS" && "text-muted-foreground"
                     )}
                   />

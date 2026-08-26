@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, RotateCw, Sparkles, User } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Send, RotateCw, Sparkles, User, Square, Copy, Check, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { readCoachSseEvents } from "@/lib/coach/sse";
 import { MessageContent } from "./message-content";
 import type { CoachMessageData } from "./types";
 
@@ -24,45 +24,38 @@ function nowIso(): string {
 
 interface DisplayMessage extends CoachMessageData {
   memoryNoted?: boolean;
-  // Only true for a reply just received this session — history loaded from
-  // the server (initialMessages) renders instantly, never re-animates.
-  animate?: boolean;
+  streaming?: boolean;
 }
 
-// Reveals `fullText` progressively when `enabled`, in a fixed number of
-// chunks so a long reply doesn't take proportionally longer to finish than
-// a short one — a flat ~800ms either way.
-function useTypewriter(fullText: string, enabled: boolean): string {
-  const [revealed, setRevealed] = useState(enabled ? "" : fullText);
-
-  useEffect(() => {
-    if (!enabled) {
-      setRevealed(fullText);
-      return;
-    }
-    const totalTicks = 40;
-    const chunkSize = Math.max(1, Math.ceil(fullText.length / totalTicks));
-    setRevealed("");
-    let shown = 0;
-    const id = setInterval(() => {
-      shown = Math.min(fullText.length, shown + chunkSize);
-      setRevealed(fullText.slice(0, shown));
-      if (shown >= fullText.length) clearInterval(id);
-    }, 20);
-    return () => clearInterval(id);
-  }, [fullText, enabled]);
-
-  return revealed;
-}
-
-function CoachMessageBubble({ msg }: { msg: DisplayMessage }) {
+function CoachMessageBubble({
+  msg,
+  isLastAssistant,
+  onRegenerate,
+}: {
+  msg: DisplayMessage;
+  isLastAssistant: boolean;
+  onRegenerate: () => void;
+}) {
   const { dict } = useLocale();
   const page = dict.dashboard.coachPage.chat;
-  const revealedContent = useTypewriter(msg.content, msg.animate === true);
+  const [copied, setCopied] = useState(false);
 
   const actionLabel = (labelKey: string, count?: number) => {
     const template = page.actions[labelKey as keyof typeof page.actions] ?? labelKey;
     return count !== undefined ? template.replace("{count}", String(count)) : template;
+  };
+
+  const isUser = msg.role === "USER";
+  const showHoverActions = !isUser && !msg.streaming;
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied by the browser — silently no-op rather than showing an error for a non-critical action.
+    }
   };
 
   return (
@@ -70,24 +63,33 @@ function CoachMessageBubble({ msg }: { msg: DisplayMessage }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className={cn("flex gap-2", msg.role === "USER" && "flex-row-reverse")}
+      className={cn("group/msg flex gap-2.5", isUser && "flex-row-reverse")}
     >
       <div
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full",
-          msg.role === "USER" ? "bg-primary text-primary-foreground" : "bg-primary/15 text-primary"
+          isUser ? "bg-primary text-primary-foreground" : "bg-primary/15 text-primary"
         )}
       >
-        {msg.role === "USER" ? <User className="size-4" /> : <Sparkles className="size-4" />}
+        {isUser ? <User className="size-4" /> : <Sparkles className="size-4" />}
       </div>
-      <div className="max-w-[80%] space-y-1">
+      <div className={cn("min-w-0 space-y-1", isUser ? "max-w-[85%]" : "max-w-full flex-1")}>
         <div
           className={cn(
-            "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-            msg.role === "USER" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"
+            "text-sm leading-normal",
+            isUser ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3.5 py-2.5" : "px-0.5 py-1"
           )}
         >
-          <MessageContent content={revealedContent} />
+          {msg.streaming && msg.content.length === 0 ? (
+            <span className="text-muted-foreground inline-flex items-center gap-1.5">
+              <span className="bg-primary/60 size-1.5 animate-bounce rounded-full [animation-delay:-0.3s]" />
+              <span className="bg-primary/60 size-1.5 animate-bounce rounded-full [animation-delay:-0.15s]" />
+              <span className="bg-primary/60 size-1.5 animate-bounce rounded-full" />
+              <span className="ml-0.5">{page.thinking}</span>
+            </span>
+          ) : (
+            <MessageContent content={msg.content} />
+          )}
           {msg.suggestedActions && msg.suggestedActions.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-2">
               {msg.suggestedActions.map((action) => (
@@ -102,6 +104,20 @@ function CoachMessageBubble({ msg }: { msg: DisplayMessage }) {
             </div>
           )}
         </div>
+
+        {showHoverActions && (
+          <div className="flex items-center gap-1 pl-0.5 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+            <Button size="icon-xs" variant="ghost" onClick={copyText} aria-label={page.copy} title={copied ? page.copied : page.copy}>
+              {copied ? <Check className="text-success" /> : <Copy />}
+            </Button>
+            {isLastAssistant && (
+              <Button size="icon-xs" variant="ghost" onClick={onRegenerate} aria-label={page.regenerate} title={page.regenerate}>
+                <RefreshCw />
+              </Button>
+            )}
+          </div>
+        )}
+
         {msg.memoryNoted && <p className="text-muted-foreground pl-1 text-xs italic">{page.memoryNotedLabel}</p>}
       </div>
     </motion.div>
@@ -110,11 +126,10 @@ function CoachMessageBubble({ msg }: { msg: DisplayMessage }) {
 
 interface ChatPanelProps {
   initialMessages: CoachMessageData[];
-  targetRole: string | null;
   onMessageSent: () => void;
 }
 
-export function ChatPanel({ initialMessages, targetRole, onMessageSent }: ChatPanelProps) {
+export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
   const { dict } = useLocale();
   const page = dict.dashboard.coachPage.chat;
 
@@ -122,16 +137,78 @@ export function ChatPanel({ initialMessages, targetRole, onMessageSent }: ChatPa
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const autoAskedRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Contextual "Discuss with ProfyMind" buttons elsewhere in the app (Career
+  // Analysis, Roadmap, ...) link here as `/dashboard/coach?ask=<question>` —
+  // fired once on load via `sendRef` (kept current below, right after `send`
+  // is defined, so it's already pointing at the real function by the time
+  // this effect runs on the same mount), then stripped from the URL so
+  // refreshing or navigating back never re-sends it.
+  const sendRef = useRef<(presetMessage?: string) => void>(() => {});
+
+  const runStream = async (url: string, body: unknown, assistantId: string) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const updateAssistant = (patch: Partial<DisplayMessage>) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, ...patch } : m)));
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("failed");
+
+      let sawDone = false;
+      let errorCode: "unavailable" | "generic" | null = null;
+      for await (const event of readCoachSseEvents(response)) {
+        if (event.type === "delta") {
+          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + event.text } : m)));
+        } else if (event.type === "done") {
+          sawDone = true;
+          updateAssistant({ streaming: false, suggestedActions: event.suggestedActions, memoryNoted: event.memoryNoted });
+        } else if (event.type === "error") {
+          errorCode = event.code ?? "generic";
+          break;
+        }
+      }
+      if (errorCode) throw new Error(errorCode);
+      if (!sawDone) throw new Error("generic");
+      onMessageSent();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // The user stopped generation on purpose — keep whatever text streamed in so far, just mark it finished.
+        updateAssistant({ streaming: false });
+        return;
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      setError(err instanceof Error && err.message === "unavailable" ? page.errorUnavailable : page.errorSend);
+      setLastFailedMessage(typeof body === "object" && body && "message" in body ? String((body as { message: unknown }).message) : null);
+    } finally {
+      abortRef.current = null;
+      setSending(false);
+      textareaRef.current?.focus();
+    }
+  };
+
   const send = async (presetMessage?: string) => {
     const message = (presetMessage ?? input).trim();
     if (!message || sending) return;
     setError(null);
+    setLastFailedMessage(null);
     setSending(true);
     setInput("");
 
@@ -142,88 +219,135 @@ export function ChatPanel({ initialMessages, targetRole, onMessageSent }: ChatPa
       suggestedActions: null,
       createdAt: nowIso(),
     };
-    setMessages((prev) => [...prev, optimisticUser]);
+    const assistantId = makeOptimisticId("reply");
+    const assistantPlaceholder: DisplayMessage = {
+      id: assistantId,
+      role: "ASSISTANT",
+      content: "",
+      suggestedActions: null,
+      createdAt: nowIso(),
+      streaming: true,
+    };
+    setMessages((prev) => [...prev, optimisticUser, assistantPlaceholder]);
 
-    try {
-      const response = await fetch("/api/coach/message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      if (!response.ok) throw new Error("failed");
-      const data = (await response.json()) as {
-        reply: string;
-        suggestedActions: { labelKey: string; href: string; count?: number }[];
-        memoryNoted: boolean;
-      };
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: makeOptimisticId("reply"),
-          role: "ASSISTANT",
-          content: data.reply,
-          suggestedActions: data.suggestedActions,
-          createdAt: nowIso(),
-          memoryNoted: data.memoryNoted,
-          animate: true,
-        },
-      ]);
-      onMessageSent();
-    } catch {
-      setError(page.errorSend);
-    } finally {
-      setSending(false);
+    await runStream("/api/coach/message", { message }, assistantId);
+  };
+  useEffect(() => {
+    sendRef.current = send;
+  });
+
+  useEffect(() => {
+    if (autoAskedRef.current) return;
+    autoAskedRef.current = true;
+    const ask = new URLSearchParams(window.location.search).get("ask");
+    if (ask) {
+      window.history.replaceState(null, "", window.location.pathname);
+      sendRef.current(ask);
+    }
+  }, []);
+
+  const regenerate = async () => {
+    if (sending) return;
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "ASSISTANT");
+    if (!lastAssistant) return;
+
+    setError(null);
+    setSending(true);
+
+    const assistantId = makeOptimisticId("reply");
+    setMessages((prev) => [
+      ...prev.filter((m) => m.id !== lastAssistant.id),
+      { id: assistantId, role: "ASSISTANT", content: "", suggestedActions: null, createdAt: nowIso(), streaming: true },
+    ]);
+
+    await runStream("/api/coach/regenerate", {}, assistantId);
+  };
+
+  const stopGenerating = () => {
+    abortRef.current?.abort();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
     }
   };
 
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === "ASSISTANT")?.id;
+
   return (
-    <Card className="border-primary/10 from-primary/5 gap-0 overflow-hidden bg-gradient-to-b to-transparent py-0">
-      <CardContent className="flex h-[60vh] flex-col gap-3 px-4 pt-4">
-        <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-          {messages.length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-              <div className="bg-primary/15 flex size-12 items-center justify-center rounded-full">
-                <Sparkles className="text-primary size-6" />
-              </div>
-              <div className="max-w-sm space-y-1.5">
-                <p className="font-semibold">{page.greetingTitle}</p>
-                <p className="text-muted-foreground text-sm">
-                  {targetRole ? page.greetingWithGoalTemplate.replace("{role}", targetRole) : page.capabilitiesLine}
-                </p>
-              </div>
-              <div className="flex max-w-sm flex-wrap justify-center gap-2">
-                {(Object.entries(page.quickActions) as [keyof typeof page.quickActions, string][]).map(([key, label]) => (
-                  <Button key={key} size="sm" variant="outline" onClick={() => send(label)} disabled={sending}>
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
+    <div>
+      {messages.length === 0 ? (
+        <div className="mx-auto flex min-h-[55dvh] w-full max-w-3xl flex-col items-center justify-center gap-4 px-3 text-center sm:px-4">
+          <div className="bg-primary/15 flex size-12 items-center justify-center rounded-full">
+            <Sparkles className="text-primary size-6" />
+          </div>
+          <div className="max-w-sm space-y-1.5">
+            <p className="text-lg font-semibold">{page.greetingTitle}</p>
+            <p className="text-muted-foreground text-sm">{page.capabilitiesLine}</p>
+          </div>
+          <div className="flex max-w-md flex-wrap justify-center gap-2">
+            {(Object.entries(page.quickActions) as [keyof typeof page.quickActions, string][]).map(([key, label]) => (
+              <Button key={key} size="sm" variant="outline" onClick={() => send(label)} disabled={sending}>
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mx-auto flex w-full max-w-3xl flex-col space-y-3.5 px-3 py-2 sm:px-4">
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
-              <CoachMessageBubble key={msg.id} msg={msg} />
+              <CoachMessageBubble key={msg.id} msg={msg} isLastAssistant={msg.id === lastAssistantId} onRegenerate={regenerate} />
             ))}
           </AnimatePresence>
-          <div ref={bottomRef} />
         </div>
+      )}
 
-        {error && <p className="text-destructive text-sm">{error}</p>}
+      <div className="pt-3">
+        <div ref={bottomRef} className="mx-auto w-full max-w-3xl px-3 pb-4 sm:px-4">
+          {error && (
+            <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+              <p className="text-destructive">{error}</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => lastFailedMessage && send(lastFailedMessage)}>
+                <RotateCw className="size-3.5" />
+                {page.retry}
+              </Button>
+            </div>
+          )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            send();
-          }}
-          className="flex gap-2 pb-4"
-        >
-          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder={page.placeholder} disabled={sending} />
-          <Button type="submit" disabled={sending || !input.trim()}>
-            {sending ? <RotateCw className="animate-spin" /> : <Send />}
-            {page.send}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!sending) send();
+            }}
+            className="composer-shell bg-card shadow-card flex items-end gap-2 rounded-2xl p-1.5"
+          >
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={page.placeholder}
+              disabled={sending}
+              rows={1}
+              className="max-h-40 min-h-10 resize-none border-transparent bg-transparent py-2.5 focus-visible:border-transparent focus-visible:ring-0"
+            />
+            {sending ? (
+              <Button type="button" variant="secondary" className="shrink-0" onClick={stopGenerating}>
+                <Square className="fill-current" />
+                {page.stop}
+              </Button>
+            ) : (
+              <Button type="submit" disabled={!input.trim()} className="shrink-0">
+                <Send />
+                {page.send}
+              </Button>
+            )}
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }

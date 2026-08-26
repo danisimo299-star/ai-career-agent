@@ -4,10 +4,10 @@ import { professionCatalog, insightTemplates } from "./mock-data";
 import { buildMockRoadmap } from "./mock-roadmap";
 import { buildMockCareerMissions } from "./mock-missions";
 import { buildMockInterviewQuestion, evaluateMockInterviewAnswer, generateMockInterviewReport } from "./mock-interview";
-import { buildMockResumeDraft, buildMockResumeSection } from "./mock-resume";
+import { buildMockResumeDraft, buildMockResumeSection, buildMockResumeReview } from "./mock-resume";
 import { buildMockJobPreparationPlan } from "./mock-job-preparation";
 import { parseMockJobSearchQuery } from "./mock-job-search-assistant";
-import { buildMockCoachReply } from "./mock-coach";
+import { buildMockCoachReply, stripCoachDisplayMarkers } from "./mock-coach";
 import type {
   AICareerService,
   AnalyzeUserInput,
@@ -20,6 +20,8 @@ import type {
   ResumeDraftResult,
   ResumeSectionContext,
   ResumeSectionSuggestion,
+  ResumeReviewContext,
+  ResumeReviewResult,
   CareerMissionsContext,
   CareerMissionsGenerationResult,
   InterviewQuestionContext,
@@ -33,7 +35,7 @@ import type {
   JobSearchAssistantContext,
   JobSearchAssistantResult,
   CoachReplyContext,
-  CoachReplyResult,
+  CoachStreamEvent,
 } from "./types";
 
 /**
@@ -112,6 +114,10 @@ export class MockCareerService implements AICareerService {
     return buildMockResumeSection(input);
   }
 
+  async reviewResume(input: ResumeReviewContext): Promise<ResumeReviewResult> {
+    return buildMockResumeReview(input);
+  }
+
   async generateCareerMissions(input: CareerMissionsContext): Promise<CareerMissionsGenerationResult> {
     return buildMockCareerMissions(input);
   }
@@ -136,7 +142,21 @@ export class MockCareerService implements AICareerService {
     return parseMockJobSearchQuery(input);
   }
 
-  async generateCoachReply(input: CoachReplyContext): Promise<CoachReplyResult> {
-    return buildMockCoachReply(input);
+  // Still zero network calls and fully deterministic (`buildMockCoachReply`
+  // resolves the whole reply upfront) — chunked and paced only so the mock
+  // path gives the same live, token-by-token feel as a real streamed
+  // provider instead of a jarring instant response. `result.reply` may carry
+  // a trailing internal turn-tracking marker (see `stripCoachDisplayMarkers`)
+  // that must reach persistence (the `done` event's `content`) but must
+  // never be streamed to the client as a visible delta.
+  async *streamCoachReply(input: CoachReplyContext): AsyncIterable<CoachStreamEvent> {
+    const result = buildMockCoachReply(input);
+    const displayText = stripCoachDisplayMarkers(result.reply);
+    const words = displayText.split(" ");
+    for (const word of words) {
+      yield { type: "delta", text: `${word} ` };
+      await new Promise((resolve) => setTimeout(resolve, 12));
+    }
+    yield { type: "done", content: result.reply, intent: result.intent, memoryFact: result.memoryFact };
   }
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { RotateCw, Briefcase, Search } from "lucide-react";
+import { RotateCw, Briefcase, Search, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import type { ProgressResult } from "@/lib/career/roadmap-progress";
 
@@ -29,33 +30,35 @@ export function RoadmapHeader({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
-          <p className="text-muted-foreground text-sm">{page.subtitle}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={
-              <Link href={`/dashboard/jobs?role=${encodeURIComponent(careerTitle)}`}>
-                <Search />
-                {page.findJobsCta}
-              </Link>
-            }
-          />
-          <Button variant="outline" size="sm" onClick={onChangeCareer}>
-            <Briefcase />
-            {page.changeCareerCta}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onRegenerate}>
-            <RotateCw />
-            {page.regenerateCta}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={page.title}
+        description={page.subtitle}
+        icon={Map}
+        tone="roadmap"
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link href={`/dashboard/jobs?role=${encodeURIComponent(careerTitle)}`}>
+                  <Search />
+                  {page.findJobsCta}
+                </Link>
+              }
+            />
+            <Button variant="outline" size="sm" onClick={onChangeCareer}>
+              <Briefcase />
+              {page.changeCareerCta}
+            </Button>
+            <Button variant="outline" size="sm" onClick={onRegenerate}>
+              <RotateCw />
+              {page.regenerateCta}
+            </Button>
+          </div>
+        }
+      />
 
       <Card>
         <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-4">

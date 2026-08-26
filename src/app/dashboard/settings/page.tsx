@@ -1,21 +1,26 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
+import { profileRepository } from "@/server/repositories/profile.repository";
+import { SettingsView } from "@/components/settings/settings-view";
 
-import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/shared/empty-state";
-import { Settings } from "lucide-react";
-import { useLocale } from "@/lib/i18n/locale-provider";
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
+  if (!user?.id) redirect("/login");
 
-export default function SettingsPage() {
-  const { dict } = useLocale();
+  const profile = await profileRepository.findByUserId(user.id);
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={dict.dashboard.cards.settings.title} description={dict.dashboard.cards.settings.description} />
-      <EmptyState
-        icon={Settings}
-        title={dict.common.comingSoon}
-        description={dict.dashboard.cards.settings.description}
-      />
-    </div>
+    <SettingsView
+      userName={user.name ?? ""}
+      profile={{
+        age: profile?.age ?? null,
+        city: profile?.city ?? null,
+        educationStage: profile?.educationStage ?? null,
+        experienceLevel: profile?.experienceLevel ?? null,
+        aiUseProfileContext: profile?.aiUseProfileContext ?? true,
+        aiRememberHistory: profile?.aiRememberHistory ?? true,
+        aiReplyStyle: profile?.aiReplyStyle ?? "BALANCED",
+      }}
+    />
   );
 }

@@ -1,0 +1,17 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/session";
+import { exportService } from "@/server/services/export.service";
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user?.id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const data = await exportService.exportUserData(user.id);
+
+  return new NextResponse(JSON.stringify(data, null, 2), {
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Disposition": 'attachment; filename="profymind-data.json"',
+    },
+  });
+}

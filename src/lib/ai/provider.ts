@@ -3,6 +3,7 @@ import type { AIProvider } from "./types";
 import { MockAIProvider } from "./providers/mock.provider";
 import { OpenAIProvider } from "./providers/openai.provider";
 import { AnthropicProvider } from "./providers/anthropic.provider";
+import { OllamaProvider } from "./providers/ollama.provider";
 
 let cachedProvider: AIProvider | null = null;
 
@@ -23,6 +24,10 @@ export function getAIProvider(): AIProvider {
     case "anthropic":
       if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic");
       cachedProvider = new AnthropicProvider(env.ANTHROPIC_API_KEY);
+      break;
+    case "ollama":
+      if (!env.OLLAMA_MODEL) throw new Error("OLLAMA_MODEL is required when AI_PROVIDER=ollama");
+      cachedProvider = new OllamaProvider(env.OLLAMA_BASE_URL, env.OLLAMA_MODEL);
       break;
     case "mock":
     default:

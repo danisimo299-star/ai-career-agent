@@ -14,10 +14,7 @@ export function ResumeScorePanel({ result }: { result: ResumeScoreResult }) {
       <CardHeader>
         <CardTitle className="flex items-baseline gap-2 text-base">
           {s.title}
-          <span className="text-2xl font-bold">
-            {result.score}
-            <span className="text-muted-foreground text-sm font-normal"> {s.outOf}</span>
-          </span>
+          <span className="text-2xl font-bold">{result.score}%</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

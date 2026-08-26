@@ -145,10 +145,27 @@ model Profile {
 
   onboardingCompleted Boolean @default(false)
 
+  // Real Settings-page preferences — read by coach.service.ts on every Coach
+  // turn, not decorative. `aiUseProfileContext=false` sends the Coach a
+  // blank context snapshot instead of the real profile; `aiRememberHistory
+  // =false` sends an empty history array instead of the real prior turns
+  // (past messages still display in the UI either way — this only controls
+  // what's sent to the model). `aiReplyStyle` appends a length directive to
+  // the system prompt.
+  aiUseProfileContext Boolean      @default(true)
+  aiRememberHistory   Boolean      @default(true)
+  aiReplyStyle        AiReplyStyle @default(BALANCED)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("profiles")
+}
+
+enum AiReplyStyle {
+  BRIEF
+  BALANCED
+  DETAILED
 }
 
 // ---------------------------------------------------------------------------

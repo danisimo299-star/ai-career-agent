@@ -1,9 +1,10 @@
 "use client";
 
+import { motion } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { History } from "lucide-react";
+import { History, Mic } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import type { InterviewSessionData } from "./types";
 
@@ -64,25 +65,33 @@ export function InterviewHistory({ sessions, onOpen }: InterviewHistoryProps) {
 
       <div className="space-y-2">
         <p className="text-muted-foreground text-sm font-medium">{h.title}</p>
-        {sessions.map((session) => (
-          <button
+        {sessions.map((session, i) => (
+          <motion.button
             key={session.id}
             type="button"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: i * 0.04, ease: "easeOut" }}
             onClick={() => onOpen(session.id)}
-            className="border-border hover:border-primary/40 hover:bg-muted/50 flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors"
+            className="border-border hover:border-tool-interview/40 hover:bg-muted/50 flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors"
           >
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{session.targetRole}</p>
-              <p className="text-muted-foreground text-xs">
-                {setup.types[session.type]} · {new Date(session.createdAt).toLocaleDateString(locale === "ru" ? "ru-RU" : "en-US")}
-              </p>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="bg-tool-interview-solid flex size-8 shrink-0 items-center justify-center rounded-lg text-white">
+                <Mic className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{session.targetRole}</p>
+                <p className="text-muted-foreground text-xs">
+                  {setup.types[session.type]} · {new Date(session.createdAt).toLocaleDateString(locale === "ru" ? "ru-RU" : "en-US")}
+                </p>
+              </div>
             </div>
             {session.status === "COMPLETED" && session.report ? (
               <span className="font-semibold">{session.report.overallScore}/100</span>
             ) : (
               <Badge variant="secondary">{h.inProgressBadge}</Badge>
             )}
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>

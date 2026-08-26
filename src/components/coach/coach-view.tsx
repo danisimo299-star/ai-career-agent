@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Target, GraduationCap, FileText } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { ChatPanel } from "./chat-panel";
@@ -30,22 +31,38 @@ export function CoachView({ initialMessages, context, readiness, applicationAnal
 
   const [tab, setTab] = useState<CoachTab>("chat");
 
+  const contextChips = [
+    context.targetRole && { icon: Target, label: page.contextGoal },
+    context.skillGapPercent !== null && { icon: GraduationCap, label: page.contextSkills },
+    context.resumeScore !== null && { icon: FileText, label: page.contextResume },
+  ].filter((c): c is { icon: typeof Target; label: string } => Boolean(c));
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={page.title}
-        description={page.subtitle}
-        icon={
-          <div className="bg-primary/15 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
-            <Sparkles className="size-5" />
+    <div className="flex flex-col gap-6">
+      <div className="shrink-0 space-y-2">
+        <PageHeader title={page.title} description={page.subtitle} icon={Sparkles} tone="chat" />
+        <p className="text-muted-foreground pl-[3.25rem] text-xs">{page.helperLine}</p>
+        {contextChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pl-[3.25rem]">
+            <span className="text-muted-foreground text-xs">{page.contextStripLabel}</span>
+            {contextChips.map(({ icon: Icon, label }) => (
+              <Badge key={label} variant="secondary" className="gap-1 text-xs">
+                <Icon className="size-3" />
+                {label}
+              </Badge>
+            ))}
           </div>
-        }
-      />
+        )}
+      </div>
 
-      {context.proactiveInsight && <ProactiveInsightBanner targetRole={context.targetRole} insight={context.proactiveInsight} />}
+      {context.proactiveInsight && (
+        <div className="shrink-0">
+          <ProactiveInsightBanner targetRole={context.targetRole} insight={context.proactiveInsight} />
+        </div>
+      )}
 
-      <Tabs value={tab} onValueChange={(v) => v && setTab(v as CoachTab)}>
-        <div className="overflow-x-auto">
+      <Tabs value={tab} onValueChange={(v) => v && setTab(v as CoachTab)} className="flex flex-col">
+        <div className="shrink-0 overflow-x-auto">
           <TabsList className="w-max min-w-full sm:w-fit sm:min-w-0">
             <TabsTrigger value="chat">{page.tabs.chat}</TabsTrigger>
             <TabsTrigger value="overview">{page.tabs.overview}</TabsTrigger>
@@ -56,7 +73,7 @@ export function CoachView({ initialMessages, context, readiness, applicationAnal
         </div>
 
         <TabsContent value="chat" keepMounted className="mt-4">
-          <ChatPanel initialMessages={initialMessages} targetRole={context.targetRole} onMessageSent={() => {}} />
+          <ChatPanel initialMessages={initialMessages} onMessageSent={() => {}} />
         </TabsContent>
 
         <TabsContent value="overview" className="mt-4">

@@ -3,17 +3,18 @@ import { userRepository } from "@/server/repositories/user.repository";
 
 /**
  * Server-side helper for getting the current user in server components /
- * route handlers. `name` is re-fetched from the database rather than read
- * off the JWT claim, since the claim is frozen at sign-in time and
- * onboarding sets the name afterwards — trusting the token would show a
- * stale (empty) name until the session cookie is re-issued.
+ * route handlers. `name` and `image` are re-fetched from the database
+ * rather than read off the JWT claims, since those claims are frozen at
+ * sign-in time — onboarding sets `name` afterwards, and a Google account's
+ * `image` can likewise change after the session was issued — so trusting
+ * the token would show stale values until the session cookie is re-issued.
  */
 export async function getCurrentUser() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
   const dbUser = await userRepository.findById(session.user.id);
-  return { ...session.user, name: dbUser?.name ?? session.user.name };
+  return { ...session.user, name: dbUser?.name ?? session.user.name, image: dbUser?.image ?? session.user.image };
 }
 
 export async function requireCurrentUser() {

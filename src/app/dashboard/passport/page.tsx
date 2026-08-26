@@ -26,6 +26,11 @@ export default async function CareerPassportPage() {
         educationStage: profile?.educationStage ?? null,
         interests: profile?.interests ?? [],
         goals: profile?.goals ?? [],
+        skills: profile?.skills ?? [],
+        strengths: profile?.strengths ?? [],
+        preferredFormat: profile?.preferredFormat ?? null,
+        salaryExpectation: profile?.salaryExpectation ?? null,
+        languages: profile?.languages ?? [],
       }}
       dna={scoreSnapshot.dna}
       score={scoreSnapshot.score}

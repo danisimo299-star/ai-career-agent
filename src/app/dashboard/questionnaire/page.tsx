@@ -29,6 +29,8 @@ export default async function QuestionnairePage() {
       <QuestionnaireWindow
         initialMessages={initialMessages}
         initialProgress={progress.percent}
+        initialStep={progress.step}
+        initialTotalSteps={progress.total}
         initialIsComplete={progress.isComplete}
         interests={profile?.interests ?? []}
       />

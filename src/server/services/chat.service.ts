@@ -51,10 +51,16 @@ function deriveState(covered: string[]): QuestionnaireState {
   };
 }
 
-function computeProgressPercent(snapshot: ReturnType<typeof toProfileSnapshot>, state: QuestionnaireState): number {
+/**
+ * `total` is a live re-estimate, not a fixed constant — branches (see
+ * `pickNextQuestionId`) can add or remove a step, so it can shift by one as
+ * the interview proceeds. Exposed alongside the percent so the UI can show
+ * a human "Step X of ~Y" instead of just a percentage.
+ */
+function computeProgress(snapshot: ReturnType<typeof toProfileSnapshot>, state: QuestionnaireState): { percent: number; step: number; total: number } {
   const total = estimateQuestionnaireLength(snapshot, state);
-  if (total <= 0) return 100;
-  return Math.min(100, Math.round((state.covered.length / total) * 100));
+  if (total <= 0) return { percent: 100, step: state.covered.length, total: state.covered.length };
+  return { percent: Math.min(100, Math.round((state.covered.length / total) * 100)), step: Math.min(state.covered.length + 1, total), total };
 }
 
 async function buildFirstQuestion(userId: string, locale: Locale) {
@@ -83,7 +89,7 @@ export const chatService = {
     const snapshot = toProfileSnapshot(profile);
     const state = deriveState(profile?.interviewTopicsCovered ?? []);
     state.prioritizedSalary = (profile?.careerPriorities ?? []).includes("salary");
-    return { percent: computeProgressPercent(snapshot, state), isComplete: profile?.questionnaireCompleted ?? false };
+    return { ...computeProgress(snapshot, state), isComplete: profile?.questionnaireCompleted ?? false };
   },
 
   async sendMessage(userId: string, locale: Locale, answer: QuestionnaireAnswerInput) {
@@ -210,7 +216,7 @@ export const chatService = {
     if (isComplete) profileUpdate.questionnaireCompleted = true;
     await profileRepository.upsert(userId, profileUpdate);
 
-    const percent = computeProgressPercent(snapshotAfter, { ...state, covered: normalizeCovered(newCovered) });
-    return { reply: analysis.reply, nextQuestion, isComplete, progressPercent: percent };
+    const progress = computeProgress(snapshotAfter, { ...state, covered: normalizeCovered(newCovered) });
+    return { reply: analysis.reply, nextQuestion, isComplete, progressPercent: progress.percent, step: progress.step, totalSteps: progress.total };
   },
 };

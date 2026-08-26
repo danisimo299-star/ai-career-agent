@@ -4,6 +4,7 @@ import type {
   CareerAnalysisContext,
   ResumeGenerationContext,
   ResumeSectionContext,
+  ResumeReviewContext,
   RoadmapGenerationContext,
   CareerMissionsContext,
   InterviewQuestionContext,
@@ -18,6 +19,19 @@ function languageDirective(locale: Locale): string {
   return locale === "ru"
     ? "Respond in Russian. All natural-language text in your JSON output (reply, reasoning, insights, descriptions, etc.) must be in Russian."
     : "Respond in English. All natural-language text in your JSON output (reply, reasoning, insights, descriptions, etc.) must be in English.";
+}
+
+/** User-controlled reply length (Settings → ProfyMind → reply style) — always a real instruction, never a stylistic suggestion the model can safely ignore. */
+function replyStyleDirective(style: "BRIEF" | "BALANCED" | "DETAILED"): string {
+  switch (style) {
+    case "BRIEF":
+      return "REPLY LENGTH: the user has asked for brief replies. 1-3 sentences, direct, no elaboration unless they explicitly ask for more.";
+    case "DETAILED":
+      return "REPLY LENGTH: the user has asked for detailed replies. Fully explain your reasoning and cover relevant angles (still grounded only in known facts) — several sentences or short paragraphs, use a list only if it genuinely helps.";
+    case "BALANCED":
+    default:
+      return "REPLY LENGTH: 2-6 sentences by default — enough to actually answer, not so much it becomes a wall of text.";
+  }
 }
 
 export function buildAnalyzeUserPrompt(input: AnalyzeUserInput): string {
@@ -45,7 +59,7 @@ export function buildCareerRecommendationsPrompt(input: CareerAnalysisContext): 
     "You are a career analyst. Based on the user profile below, recommend exactly 5 suitable professions, best match first.",
     languageDirective(input.locale),
     `User profile: ${JSON.stringify(input.profile)}`,
-    "Respond as strict JSON: an array of 5 objects, each with this exact shape:",
+    "Respond as strict JSON: { \"recommendations\": array of 5 objects }, each with this exact shape:",
     `{
   "title": string,
   "matchScore": number, // 0-100
@@ -77,7 +91,7 @@ export function buildRoadmapPrompt(input: RoadmapGenerationContext): string {
     languageDirective(input.locale),
     "Return 6 to 10 ordered milestones, from foundational to job-ready (e.g. foundation, 2-4 core skill milestones specific to this career, portfolio, resume, interview prep, job applications). Each milestone needs 3-6 concrete tasks.",
     "Do NOT include a URL for any resource — resource links are attached separately from a verified catalog, never invent one.",
-    "Respond as strict JSON: an array of milestone objects, each with this exact shape:",
+    "Respond as strict JSON: { \"milestones\": array of milestone objects }, each with this exact shape:",
     `{
   "title": string,
   "description": string, // 1-2 sentences, what this milestone covers
@@ -135,6 +149,27 @@ export function buildResumeSectionPrompt(input: ResumeSectionContext): string {
   };
 
   return [...shared, sectionInstructions[input.section], `Respond as strict JSON: ${responseShape[input.section]}`].join("\n");
+}
+
+export function buildResumeReviewPrompt(input: ResumeReviewContext): string {
+  return [
+    `You are reviewing a real candidate's resume for a "${input.targetRole}" target role. Ground every observation ONLY in the resume content below — never invent a fact, skill, or number that isn't actually there.`,
+    `Resume content: ${JSON.stringify(input.content)}`,
+    languageDirective(input.locale),
+    "`strengths`: up to 3 genuinely true things about this specific resume (not generic advice) — reference what's actually in it.",
+    "`improvements`: up to 3 concrete, specific things to improve — vague filler like \"be more professional\" is not acceptable, name the actual weak part.",
+    "`missing`: up to 3 sections or facts genuinely absent (e.g. no measurable results, no education, too few skills) — omit anything that's actually present.",
+    "`fitNote`: 1-2 sentences on how well this resume, as written, fits the target role specifically — reference real skills/experience present or absent, not a vague guess.",
+    "`nextStep`: the single most valuable next action to take — one sentence, not a repeat of the improvements list.",
+    "Respond as strict JSON with this exact shape:",
+    `{
+  "strengths": string[],
+  "improvements": string[],
+  "missing": string[],
+  "fitNote": string,
+  "nextStep": string
+}`,
+  ].join("\n");
 }
 
 export function buildCareerMissionsPrompt(input: CareerMissionsContext): string {
@@ -286,7 +321,7 @@ export function buildJobSearchAssistantPrompt(input: JobSearchAssistantContext):
     "`city` only if a real city is named in the text — never invent one.",
     "`workFormat` only one of REMOTE/HYBRID/ONSITE/ANY, only if implied.",
     "`experience` only one of noExperience/between1And3/between3And6/moreThan6, only if implied (e.g. \"junior\"/\"без опыта\" -> noExperience, \"senior\" -> moreThan6).",
-    "`employmentTypes` only from full/part/project/volunteer/probation (probation = internship/trial), only if implied.",
+    "`employmentTypes` — an array using ONLY these exact literal codes, never a natural-language variant: \"full\" (not \"full-time\"), \"part\" (not \"part-time\"), \"project\", \"volunteer\", \"probation\" (= internship/trial). Only include a code if genuinely implied by the text.",
     "`salaryMin` only a real number if a minimum salary is stated.",
     "`internshipOnly` true only if the text explicitly asks for an internship/trial position.",
     "Omit any field the text doesn't actually support — do not guess just to fill every field.",
@@ -326,9 +361,9 @@ export function buildJobPreparationPrompt(input: JobPreparationContext): string 
   ].join("\n");
 }
 
-export function buildCoachReplyPrompt(input: CoachReplyContext): string {
+function buildCoachKnownFacts(input: CoachReplyContext): string[] {
   const s = input.snapshot;
-  const knownFacts = [
+  return [
     s.name ? `Name: ${s.name}` : null,
     s.age !== null ? `Age: ${s.age}` : null,
     s.targetRole ? `Target profession: ${s.targetRole}` : null,
@@ -349,8 +384,20 @@ export function buildCoachReplyPrompt(input: CoachReplyContext): string {
     s.proactiveInsight
       ? `Real pattern found in their saved jobs: ${s.proactiveInsight.jobCount} of their saved jobs require "${s.proactiveInsight.skill}", which is not in their profile.`
       : null,
-  ].filter(Boolean);
+  ].filter((f): f is string => f !== null);
+}
 
+/**
+ * The `system` message for the streamed prose reply — sent once per turn
+ * alongside the real conversation history as separate `user`/`assistant`
+ * messages (not inlined as JSON text), so the model reads it the way a real
+ * multi-turn chat completion is supposed to be shaped. Deliberately produces
+ * plain reply text only, no JSON — intent/memory extraction is a separate,
+ * fast, non-streamed call (`buildCoachMetaPrompt`) that runs concurrently.
+ */
+export function buildCoachSystemPrompt(input: CoachReplyContext): string {
+  const knownFacts = buildCoachKnownFacts(input);
+  const s = input.snapshot;
   const preferences = s.careerPreferences.length > 0 ? s.careerPreferences.map((p) => `- ${p}`).join("\n") : null;
 
   return [
@@ -358,9 +405,9 @@ export function buildCoachReplyPrompt(input: CoachReplyContext): string {
     "",
     "PERSONALITY: intelligent, friendly, supportive, confident, honest, curious, practical, encouraging, professional. Vary your phrasing naturally across turns — never open consecutive replies with the same stock phrase (\"Great question!\", \"Of course!\", \"Let's explore that!\"). You may have a recognizable voice, but you are an AI: never claim to be human, never fabricate personal experience (\"I worked as...\", \"I remember when...\") — instead say things like \"Based on what you've told me...\" or \"From your profile...\".",
     "",
-    "CONVERSATION STYLE: read the actual conversation history below and respond to what was actually just said — the reply must depend on it, not be a generic restatement. Don't always end with a question; sometimes give a direct answer, sometimes recommend an action, sometimes explain something, sometimes gently challenge an assumption. When a question genuinely helps (the user is uncertain, or you need one more detail to give a real answer), ask exactly ONE specific, adaptive question that builds on what they just said — never a generic \"How can I help?\" and never a barrage of questions at once. If the user asks something unrelated to careers (e.g. a joke), give a brief, natural response and then return to the career conversation in the same reply — don't refuse and don't ignore it.",
+    "CONVERSATION STYLE: read the actual conversation history and respond to what was actually just said — the reply must depend on it, not be a generic restatement. Don't always end with a question; sometimes give a direct answer, sometimes recommend an action, sometimes explain something, sometimes gently challenge an assumption. When a question genuinely helps (the user is uncertain, or you need one more detail to give a real answer), ask exactly ONE specific, adaptive question that builds on what they just said — never a generic \"How can I help?\" and never a barrage of questions at once. If the user asks something unrelated to careers (e.g. a joke), give a brief, natural response and then return to the career conversation in the same reply — don't refuse and don't ignore it.",
     "",
-    "DON'T JUST AGREE: you're an advisor, not a yes-machine. If the user's stated reasoning is weak or conflicts with what you actually know about them (e.g. picking a path purely for salary when their stated priorities/interests point elsewhere, or being confident about readiness the data doesn't support), say so directly but kindly, and back it with a specific fact from what's known above — never a vague \"are you sure?\". Example shape: \"Salary's worth weighing, but I wouldn't decide on that alone — your profile leans toward {X}, so {alternative} might be worth comparing too.\" Only push back when you actually have a fact to push back WITH; if you don't, don't manufacture disagreement.",
+    "DON'T JUST AGREE: you're an advisor, not a yes-machine. If the user's stated reasoning is weak or conflicts with what you actually know about them (e.g. picking a path purely for salary when their stated priorities/interests point elsewhere, or being confident about readiness the data doesn't support), say so directly but kindly, and back it with a specific fact from what's known below — never a vague \"are you sure?\". Example shape: \"Salary's worth weighing, but I wouldn't decide on that alone — your profile leans toward {X}, so {alternative} might be worth comparing too.\" Only push back when you actually have a fact to push back WITH; if you don't, don't manufacture disagreement.",
     "If the user asks something like \"why am I not ready\" or \"why am I not getting interviews\", answer with the SPECIFIC known numbers (skill gap %, missing skills, resume score, interview score, application count) rather than generic advice — that's the whole point of having real data instead of a canned answer.",
     "",
     "Facts already known about this user — NEVER ask about any of these, only revisit one if the user explicitly wants to change it:",
@@ -368,18 +415,43 @@ export function buildCoachReplyPrompt(input: CoachReplyContext): string {
     "",
     preferences ? `Career preferences already learned from earlier conversation — weave these in naturally where relevant:\n${preferences}` : null,
     "",
-    `Conversation so far (most recent last):`,
-    JSON.stringify(input.history),
+    "Write a natural, specific reply grounded ONLY in the known facts and conversation above — never invent a skill, score, job, company, salary figure, or market statistic not already given to you. If you genuinely don't have enough information to answer specifically, say so plainly (\"I don't have enough reliable information to say that\") rather than guessing, and ask one useful clarifying question instead.",
+    "Do not claim to have taken an action (like applying to a job) — you can only suggest what the user could do next.",
+    "FORMATTING: bold (**like this**) the specific numbers, skill names, or key terms that matter most in each paragraph — the 1-3 things someone skimming should catch. Never bold a whole sentence, and don't bold in every single line if a paragraph has nothing worth highlighting.",
+    replyStyleDirective(input.replyStyle ?? "BALANCED"),
+    languageDirective(input.locale),
+    "Reply with the message text ONLY — no JSON, no labels, no surrounding quotes, nothing but what the user should read.",
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+/**
+ * A fast, non-streamed classification call that runs concurrently with the
+ * streamed reply above — it never sees the reply text (it doesn't need to:
+ * intent and any reusable preference are both derivable from the user's
+ * message and what's already known), so the two calls don't have to run
+ * sequentially.
+ */
+export function buildCoachMetaPrompt(input: CoachReplyContext): string {
+  const knownFacts = buildCoachKnownFacts(input);
+  const preferences = input.snapshot.careerPreferences.length > 0 ? input.snapshot.careerPreferences.map((p) => `- ${p}`).join("\n") : null;
+  const recentTurns = input.history.slice(-6);
+
+  return [
+    "You are classifying one message from an ongoing career-coaching conversation. You are not writing the reply — another process handles that.",
+    "",
+    "Facts already known about this user:",
+    knownFacts.length > 0 ? knownFacts.map((f) => `- ${f}`).join("\n") : "- Nothing specific is known yet.",
+    preferences ? `Preferences already learned:\n${preferences}` : null,
+    "",
+    recentTurns.length > 0 ? `Recent conversation (most recent last):\n${JSON.stringify(recentTurns)}` : null,
     `User's new message: "${input.message}"`,
     "",
     "Classify this message's primary `intent` as exactly one of: jobs, resume, interview, skillGap, roadmap, compareCareers, nextAction, applications, general.",
-    "Write a natural, specific `reply` (2-6 sentences) grounded ONLY in the known facts and conversation above — never invent a skill, score, job, company, salary figure, or market statistic not already given to you. If you genuinely don't have enough information to answer specifically, say so plainly (\"I don't have enough reliable information to say that\") rather than guessing, and ask one useful clarifying question instead.",
-    "Do not claim to have taken an action (like applying to a job) — you can only suggest what the user could do next.",
-    "`memoryFact`: if this message revealed a genuinely meaningful, reusable career preference (e.g. work style, what they want to avoid, a priority they stated) that isn't already in the known facts or preferences above, summarize it in under 15 words as a single new fact. Otherwise `null` — do not invent one just to fill the field, and never store trivial or already-known information.",
-    languageDirective(input.locale),
+    "`memoryFact`: if this message revealed a genuinely meaningful, reusable career preference (e.g. work style, what they want to avoid, a priority they stated) that isn't already in the known facts or preferences above, summarize it in under 15 words as a single new fact, in the same language as the message. Otherwise `null` — do not invent one just to fill the field, and never store trivial or already-known information.",
     "Respond as strict JSON with this exact shape:",
     `{
-  "reply": string,
   "intent": "jobs" | "resume" | "interview" | "skillGap" | "roadmap" | "compareCareers" | "nextAction" | "applications" | "general",
   "memoryFact": string | null
 }`,

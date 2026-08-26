@@ -8,9 +8,14 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  AI_PROVIDER: z.enum(["mock", "openai", "anthropic"]).default("mock"),
+  AI_PROVIDER: z.enum(["mock", "openai", "anthropic", "ollama"]).default("mock"),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  /// A local Ollama server (see ollama.com) — no API key, since it's not a
+  /// hosted service. `OLLAMA_MODEL` must already be pulled locally
+  /// (`ollama pull <model>`) before `AI_PROVIDER=ollama` can serve requests.
+  OLLAMA_BASE_URL: z.string().url().default("http://127.0.0.1:11434"),
+  OLLAMA_MODEL: z.string().optional(),
 
   JOBS_PROVIDER: z.enum(["mock", "hh"]).default("mock"),
   /// Optional HH.ru OAuth access token (see dev.hh.ru — requires a

@@ -13,7 +13,7 @@ import { MissionList, type MissionData } from "./mission-list";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import type { CareerDnaScores } from "@/lib/ai/career/types";
 import type { ScoreStrengthKey, ScoreMissingKey } from "@/lib/career/score";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles, IdCard } from "lucide-react";
 
 interface PassportProfile {
   age: number | null;
@@ -21,6 +21,11 @@ interface PassportProfile {
   educationStage: string | null;
   interests: string[];
   goals: string[];
+  skills: string[];
+  strengths: string[];
+  preferredFormat: string | null;
+  salaryExpectation: string | null;
+  languages: string[];
 }
 
 interface CareerPassportViewProps {
@@ -62,7 +67,7 @@ export function CareerPassportView({
 
   return (
     <div className="space-y-6">
-      <PageHeader title={page.title} description={page.subtitle} />
+      <PageHeader title={page.title} description={page.subtitle} icon={IdCard} tone="profile" />
 
       <Card>
         <CardHeader>
@@ -112,6 +117,60 @@ export function CareerPassportView({
               </div>
             </div>
           )}
+
+          {profile.skills.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">{page.skillsTitle}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {profile.strengths.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">{page.personalStrengthsTitle}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.strengths.map((item) => (
+                  <Badge key={item} variant="secondary">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(profile.preferredFormat || profile.salaryExpectation || profile.languages.length > 0) && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">{page.preferencesTitle}</p>
+              <div className="text-muted-foreground grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                {profile.preferredFormat && (
+                  <div>
+                    <p className="text-xs">{page.formatLabel}</p>
+                    <p className="text-foreground font-medium">
+                      {translateTag(page.workFormat as unknown as Record<string, string>, profile.preferredFormat)}
+                    </p>
+                  </div>
+                )}
+                {profile.salaryExpectation && (
+                  <div>
+                    <p className="text-xs">{page.salaryLabel}</p>
+                    <p className="text-foreground font-medium">{profile.salaryExpectation}</p>
+                  </div>
+                )}
+                {profile.languages.length > 0 && (
+                  <div className="col-span-2 sm:col-span-1">
+                    <p className="text-xs">{page.languagesLabel}</p>
+                    <p className="text-foreground font-medium">{profile.languages.join(", ")}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -119,6 +178,18 @@ export function CareerPassportView({
         <CareerDnaWidget dna={dna} />
         <CareerScoreWidget score={score} strengths={strengths} missing={missing} />
       </div>
+
+      <Button
+        variant="outline"
+        className="w-fit"
+        nativeButton={false}
+        render={
+          <Link href="/dashboard/coach">
+            <Sparkles />
+            {page.discussCta}
+          </Link>
+        }
+      />
 
       <InsightsCard insights={insights} />
 

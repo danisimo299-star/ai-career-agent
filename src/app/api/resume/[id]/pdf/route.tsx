@@ -5,7 +5,7 @@ import { getLocale } from "@/lib/i18n/get-locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { resumeService, ResumeAccessError } from "@/server/services/resume.service";
 import { ResumePdfDocument } from "@/lib/pdf/resume-pdf";
-import type { ResumeContent } from "@/types";
+import { isResumeContentMeaningful, type ResumeContent } from "@/types";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -18,6 +18,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const locale = await getLocale();
     const dict = getDictionary(locale);
     const content = resume.content as unknown as ResumeContent;
+
+    // A resume with nothing written yet would produce a technically-valid
+    // but functionally blank PDF (just whatever placeholder name/email
+    // exist) — treated as a real error rather than letting the user
+    // download a document with nothing in it to send an employer.
+    if (!isResumeContentMeaningful(content)) {
+      return NextResponse.json({ error: "empty_resume" }, { status: 422 });
+    }
 
     const buffer = await renderToBuffer(
       <ResumePdfDocument content={content} template={resume.template} dict={dict} />

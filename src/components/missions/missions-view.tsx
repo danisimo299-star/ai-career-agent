@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Sparkles, RotateCw, Target, Map } from "lucide-react";
+import { motion } from "motion/react";
+import { Sparkles, RotateCw, Target, Map, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { InsightBanner } from "@/components/shared/insight-banner";
 import { MissionsHeader } from "./missions-header";
@@ -24,9 +26,10 @@ interface MissionsViewProps {
   roadmapProgressPercent: number;
   currentMilestoneTitle: string | null;
   history: MissionHistoryEntry[];
+  initialStreak: number;
 }
 
-type ErrorKind = "generic" | "ai_invalid_response" | "no_roadmap" | null;
+type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "no_roadmap" | null;
 
 export function MissionsView({
   initialMissions,
@@ -37,6 +40,7 @@ export function MissionsView({
   roadmapProgressPercent,
   currentMilestoneTitle,
   history,
+  initialStreak,
 }: MissionsViewProps) {
   const { dict } = useLocale();
   const page = dict.dashboard.missionsPage;
@@ -44,6 +48,7 @@ export function MissionsView({
   const [missions, setMissions] = useState(initialMissions);
   const [insight, setInsight] = useState(initialInsight);
   const [careerScore, setCareerScore] = useState(initialCareerScore);
+  const [streak, setStreak] = useState(initialStreak);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<ErrorKind>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
@@ -55,6 +60,7 @@ export function MissionsView({
 
   const errorMessage = (kind: ErrorKind) => {
     if (kind === "ai_invalid_response") return page.errorAiInvalid;
+    if (kind === "ai_unavailable") return dict.common.aiUnavailable;
     return page.errorGeneration;
   };
 
@@ -88,10 +94,15 @@ export function MissionsView({
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(errorMessage(body.error ?? "generic"));
+        return false;
+      }
       const data = await response.json();
       if (data.missions) setMissions(data.missions);
       if (typeof data.careerScore === "number") setCareerScore(data.careerScore);
+      if (typeof data.streak === "number") setStreak(data.streak);
       return true;
     } catch {
       toast.error(page.errorGeneration);
@@ -132,15 +143,47 @@ export function MissionsView({
     );
   }
 
-  const [main, ...secondary] = missions;
+  const activeMissions = missions.filter((m) => m.status === "AVAILABLE" || m.status === "IN_PROGRESS");
+  const closedMissions = missions.filter((m) => m.status === "COMPLETED" || m.status === "SKIPPED" || m.status === "EXPIRED");
+
+  const renderMissionList = (list: CareerMissionData[], emptyTitle: string, emptyDescription: string) => {
+    if (list.length === 0) return <EmptyState icon={ListChecks} title={emptyTitle} description={emptyDescription} />;
+    const [main, ...secondary] = list;
+    return (
+      <>
+        {main && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm font-medium">{page.mainMissionLabel}</p>
+            <MissionCard mission={main} variant="main" onOpen={setSelectedMissionId} />
+          </div>
+        )}
+        {secondary.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm font-medium">{page.secondaryMissionsLabel}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {secondary.map((mission) => (
+                <MissionCard key={mission.id} mission={mission} variant="secondary" onOpen={setSelectedMissionId} />
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <MissionsHeader
         careerTitle={careerTitle}
         careerScore={careerScore}
         roadmapProgressPercent={roadmapProgressPercent}
         currentMilestoneTitle={currentMilestoneTitle}
+        streakDays={streak}
       />
 
       <InsightBanner text={insight} />
@@ -170,23 +213,22 @@ export function MissionsView({
             </div>
           )}
 
-          {main && (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-sm font-medium">{page.mainMissionLabel}</p>
-              <MissionCard mission={main} variant="main" onOpen={setSelectedMissionId} />
-            </div>
-          )}
-
-          {secondary.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-sm font-medium">{page.secondaryMissionsLabel}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {secondary.map((mission) => (
-                  <MissionCard key={mission.id} mission={mission} variant="secondary" onOpen={setSelectedMissionId} />
-                ))}
-              </div>
-            </div>
-          )}
+          <Tabs defaultValue="all">
+            <TabsList>
+              <TabsTrigger value="all">{page.tabs.all}</TabsTrigger>
+              <TabsTrigger value="active">{page.tabs.active}</TabsTrigger>
+              <TabsTrigger value="completed">{page.tabs.completed}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="all" keepMounted className="mt-4 space-y-4">
+              {renderMissionList(missions, page.emptyTabTitle, page.emptyTabActiveDescription)}
+            </TabsContent>
+            <TabsContent value="active" className="mt-4 space-y-4">
+              {renderMissionList(activeMissions, page.emptyTabTitle, page.emptyTabActiveDescription)}
+            </TabsContent>
+            <TabsContent value="completed" className="mt-4 space-y-4">
+              {renderMissionList(closedMissions, page.emptyTabTitle, page.emptyTabCompletedDescription)}
+            </TabsContent>
+          </Tabs>
         </>
       )}
 
@@ -203,6 +245,6 @@ export function MissionsView({
       />
 
       <SkipConfirmDialog open={skipTargetId !== null} onOpenChange={(open) => !open && setSkipTargetId(null)} onConfirm={confirmSkip} loading={busy} />
-    </div>
+    </motion.div>
   );
 }

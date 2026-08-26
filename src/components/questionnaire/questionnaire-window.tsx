@@ -20,17 +20,28 @@ function makeLocalId(prefix: string): string {
 interface QuestionnaireWindowProps {
   initialMessages: QuestionnaireMessageData[];
   initialProgress: number;
+  initialStep: number;
+  initialTotalSteps: number;
   initialIsComplete: boolean;
   interests: string[];
 }
 
-export function QuestionnaireWindow({ initialMessages, initialProgress, initialIsComplete, interests }: QuestionnaireWindowProps) {
+export function QuestionnaireWindow({
+  initialMessages,
+  initialProgress,
+  initialStep,
+  initialTotalSteps,
+  initialIsComplete,
+  interests,
+}: QuestionnaireWindowProps) {
   const { dict } = useLocale();
   const [messages, setMessages] = useState<QuestionnaireMessageData[]>(initialMessages);
   const [progress, setProgress] = useState(initialProgress);
+  const [step, setStep] = useState(initialStep);
+  const [totalSteps, setTotalSteps] = useState(initialTotalSteps);
   const [isComplete, setIsComplete] = useState(initialIsComplete);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [lastAnswer, setLastAnswer] = useState<{ payload: unknown } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +53,7 @@ export function QuestionnaireWindow({ initialMessages, initialProgress, initialI
   const pendingQuestion: QuestionSpecData | null = !isComplete ? (lastAssistant?.questionSpec ?? null) : null;
 
   const send = async (answer: QuestionAnswer & { questionId?: string }) => {
-    setError(false);
+    setError(null);
     setSending(true);
 
     const displayLabels = pendingQuestion ? resolveOptionLabels(pendingQuestion.id, dict, interests) : [];
@@ -62,22 +73,31 @@ export function QuestionnaireWindow({ initialMessages, initialProgress, initialI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error("request_failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        setError(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.questionnaire.errorGeneric);
+        setMessages((prev) => prev.slice(0, -1));
+        return;
+      }
 
       const data = (await response.json()) as {
         reply: string;
         nextQuestion: QuestionSpecData | null;
         isComplete: boolean;
         progressPercent: number;
+        step: number;
+        totalSteps: number;
       };
       setMessages((prev) => [
         ...prev,
         { id: makeLocalId("reply"), role: "assistant", content: data.reply, questionSpec: data.nextQuestion },
       ]);
       setProgress(data.progressPercent);
+      setStep(data.step);
+      setTotalSteps(data.totalSteps);
       setIsComplete(data.isComplete);
     } catch {
-      setError(true);
+      setError(dict.questionnaire.errorGeneric);
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setSending(false);
@@ -92,17 +112,9 @@ export function QuestionnaireWindow({ initialMessages, initialProgress, initialI
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 pt-4 pb-3 sm:px-6">
-        <PageHeader
-          title={dict.questionnaire.title}
-          description={dict.questionnaire.subtitle}
-          icon={
-            <div className="bg-primary/15 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
-              <ClipboardList className="size-5" />
-            </div>
-          }
-        />
+        <PageHeader title={dict.questionnaire.title} description={dict.questionnaire.subtitle} icon={ClipboardList} />
       </div>
-      <ProgressHeader percent={progress} />
+      <ProgressHeader percent={progress} step={step} totalSteps={totalSteps} />
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         {messages.map((message) => (
@@ -112,6 +124,7 @@ export function QuestionnaireWindow({ initialMessages, initialProgress, initialI
         {pendingQuestion && !sending && (
           <div className="space-y-3">
             <MessageBubble message={{ id: "pending-prompt", role: "assistant", content: pendingQuestion.prompt }} />
+            <p className="text-muted-foreground pl-11 text-xs">{dict.questionnaire.whyThisHelps}</p>
             <QuestionWidget question={pendingQuestion} interests={interests} disabled={sending} onAnswer={send} />
           </div>
         )}
@@ -120,7 +133,7 @@ export function QuestionnaireWindow({ initialMessages, initialProgress, initialI
         {error && (
           <div className="border-destructive/30 bg-destructive/5 text-destructive flex items-center gap-2 rounded-lg border p-3 text-sm">
             <AlertCircle className="size-4 shrink-0" />
-            <span className="flex-1">{dict.questionnaire.errorGeneric}</span>
+            <span className="flex-1">{error}</span>
             <Button size="sm" variant="outline" onClick={retry}>
               <RotateCw className="size-3.5" />
               {dict.questionnaire.retry}

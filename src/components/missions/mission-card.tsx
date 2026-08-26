@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Sparkles } from "lucide-react";
+import { Clock, Sparkles, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MissionStatusBadge } from "./mission-status-badge";
@@ -35,7 +35,14 @@ export function MissionCard({ mission, variant, onOpen }: MissionCardProps) {
     >
       <CardHeader className="flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          {isMain && <Sparkles className="text-primary size-4 shrink-0" />}
+          <span
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-lg",
+              isDone ? "bg-tool-tasks-solid text-white" : "bg-tool-chat-solid text-white"
+            )}
+          >
+            {isDone ? <CheckCircle2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
+          </span>
           <CardTitle className={cn(isMain ? "text-base" : "text-sm", isDone && "text-muted-foreground line-through")}>
             {mission.title}
           </CardTitle>

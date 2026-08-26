@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Search as SearchIcon, ExternalLink } from "lucide-react";
+import { motion } from "motion/react";
+import { Search as SearchIcon, ExternalLink, Briefcase } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -98,7 +99,11 @@ export function JobsView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ freeText }),
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        setAssistantError(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.assistant.error);
+        return;
+      }
       const data = (await response.json()) as { filters: JobSearchFiltersState };
       setAssistantFilters({ ...data.filters, sort: "bestMatch" });
       setFormGeneration((g) => g + 1);
@@ -175,7 +180,11 @@ export function JobsView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: vacancy.title, company: vacancy.company, requiredSkills: vacancy.requiredSkills }),
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        setPrepareError(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.prepare.error);
+        return;
+      }
       const data = (await response.json()) as PrepareResponseData;
       setPrepareData(data);
     } catch {
@@ -188,8 +197,13 @@ export function JobsView({
   const initialFilters: JobSearchFiltersState = assistantFilters ?? { targetRole: defaultTargetRole, city: defaultCity, sort: "bestMatch" };
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={page.title} description={page.subtitle} />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="space-y-6"
+    >
+      <PageHeader title={page.title} description={page.subtitle} icon={Briefcase} tone="jobs" />
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v as "search" | "saved")}>
         <TabsList>
@@ -235,14 +249,20 @@ export function JobsView({
                 )}
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
-                {results.map((item) => (
-                  <JobCard
+                {results.map((item, i) => (
+                  <motion.div
                     key={vacancyKey(item.vacancy)}
-                    item={item}
-                    saved={savedUrls.has(item.vacancy.sourceUrl)}
-                    onSave={() => handleSave(item)}
-                    onPrepare={() => handlePrepare(item.vacancy)}
-                  />
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: Math.min(i, 8) * 0.04, ease: "easeOut" }}
+                  >
+                    <JobCard
+                      item={item}
+                      saved={savedUrls.has(item.vacancy.sourceUrl)}
+                      onSave={() => handleSave(item)}
+                      onPrepare={() => handlePrepare(item.vacancy)}
+                    />
+                  </motion.div>
                 ))}
               </div>
             </>
@@ -262,6 +282,6 @@ export function JobsView({
       </Tabs>
 
       <PrepareDialog open={prepareOpen} onOpenChange={setPrepareOpen} vacancy={prepareVacancy} loading={prepareLoading} error={prepareError} data={prepareData} />
-    </div>
+    </motion.div>
   );
 }

@@ -15,4 +15,6 @@ export const careerRepository = {
         data: recommendations.map((rec) => ({ userId, ...rec })),
       }),
     ]),
+
+  deleteAllForUser: (userId: string) => prisma.careerRecommendation.deleteMany({ where: { userId } }),
 };

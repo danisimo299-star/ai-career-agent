@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { motion } from "motion/react";
+import { Mic } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { InterviewSetupForm } from "./interview-setup-form";
@@ -47,7 +49,11 @@ export function InterviewView({ initialSessions, weakSkill, defaultTargetRole, i
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        setStartError(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.setup.errorStart);
+        return;
+      }
       const data = (await response.json()) as { session: InterviewSessionData };
       upsertSession(data.session);
       setActiveId(data.session.id);
@@ -65,7 +71,11 @@ export function InterviewView({ initialSessions, weakSkill, defaultTargetRole, i
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer }),
       });
-      if (!response.ok) return false;
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        if (body.error === "ai_unavailable") toast.error(dict.common.aiUnavailable);
+        return false;
+      }
       const data = (await response.json()) as { session: InterviewSessionData };
       upsertSession(data.session);
       return true;
@@ -79,7 +89,11 @@ export function InterviewView({ initialSessions, weakSkill, defaultTargetRole, i
     setFinishing(true);
     try {
       const response = await fetch(`/api/interview/${activeId}/finish`, { method: "POST" });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.session.errorSubmit);
+        return;
+      }
       const data = (await response.json()) as { session: InterviewSessionData };
       upsertSession(data.session);
     } catch {
@@ -90,8 +104,13 @@ export function InterviewView({ initialSessions, weakSkill, defaultTargetRole, i
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={page.title} description={page.subtitle} />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="space-y-6"
+    >
+      <PageHeader title={page.title} description={page.subtitle} icon={Mic} tone="interview" />
 
       {activeSession ? (
         activeSession.status === "IN_PROGRESS" ? (
@@ -111,6 +130,6 @@ export function InterviewView({ initialSessions, weakSkill, defaultTargetRole, i
           <InterviewHistory sessions={sessions} onOpen={setActiveId} />
         </>
       )}
-    </div>
+    </motion.div>
   );
 }

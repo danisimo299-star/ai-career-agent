@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { GoogleSignInButton } from "./google-sign-in-button";
 import { registerSchema, type RegisterInput } from "@/lib/validation/auth.schema";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
@@ -90,9 +91,7 @@ export function RegisterForm() {
           <Separator className="flex-1" />
         </div>
 
-        <Button variant="outline" className="w-full" disabled>
-          {dict.auth.register.google}
-        </Button>
+        <GoogleSignInButton />
 
         <p className="text-muted-foreground text-center text-sm">
           {dict.auth.register.haveAccount}{" "}

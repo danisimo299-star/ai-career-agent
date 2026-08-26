@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
@@ -11,13 +11,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { GoogleSignInButton } from "./google-sign-in-button";
 import { credentialsSchema, type CredentialsInput } from "@/lib/validation/auth.schema";
 import { useLocale } from "@/lib/i18n/locale-provider";
+
+/** Auth.js redirects OAuth failures back to `pages.signIn` (this page) as `?error=<Code>` — never a stack trace, just a code to map to real copy. */
+function useOAuthErrorMessage(): string | null {
+  const { dict } = useLocale();
+  const searchParams = useSearchParams();
+  const code = searchParams.get("error");
+  if (!code) return null;
+  return dict.auth.googleErrors[code as keyof typeof dict.auth.googleErrors] ?? dict.auth.googleErrors.Default;
+}
 
 export function LoginForm() {
   const { dict } = useLocale();
   const router = useRouter();
-  const [formError, setFormError] = useState<string | null>(null);
+  const oauthError = useOAuthErrorMessage();
+  // Seeded directly from the URL param present at first render (Next.js
+  // resolves `useSearchParams()` from the actual request URL, server and
+  // client agree, so there's no hydration mismatch to guard against here
+  // the way there would be for a client-only source like localStorage) —
+  // afterwards the submit handlers own `formError`, so no effect needed.
+  const [formError, setFormError] = useState<string | null>(oauthError);
 
   const {
     register,
@@ -69,9 +85,7 @@ export function LoginForm() {
           <Separator className="flex-1" />
         </div>
 
-        <Button variant="outline" className="w-full" disabled>
-          {dict.auth.login.google}
-        </Button>
+        <GoogleSignInButton />
 
         <p className="text-muted-foreground text-center text-sm">
           {dict.auth.login.noAccount}{" "}

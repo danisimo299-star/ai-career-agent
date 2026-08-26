@@ -25,7 +25,9 @@ export function MobileBottomNav() {
   const nav = dict.dashboard.mobileNav;
   const [open, setOpen] = useState(false);
 
-  const moreItems = dashboardNav.filter((item) => !PRIMARY_HREFS.includes(item.href as (typeof PRIMARY_HREFS)[number]));
+  const moreItems = dashboardNav.filter(
+    (item) => item.group !== "account" && !PRIMARY_HREFS.includes(item.href as (typeof PRIMARY_HREFS)[number])
+  );
   const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href));
 
   const primaryLabel: Record<(typeof PRIMARY_HREFS)[number], string> = {

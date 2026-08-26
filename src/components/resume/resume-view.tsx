@@ -1,40 +1,59 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Download, RotateCw, Sparkles, X } from "lucide-react";
+import { Download, RotateCw, Sparkles, X, FileText } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "./personal-info-section";
+import { AiTextField } from "./ai-text-field";
 import { EntryListEditor } from "./entry-list-editor";
 import { ExperienceSection } from "./experience-section";
 import { ProjectsSection } from "./projects-section";
 import { SkillsSection } from "./skills-section";
 import { ResumePreview } from "./resume-preview";
 import { ResumeScorePanel } from "./resume-score-panel";
+import { ResumeWelcome } from "./resume-welcome";
+import { ResumeGenerationLoader } from "./resume-generation-loader";
+import { NoExperienceBanner } from "./no-experience-banner";
+import { ResumeReviewDialog } from "./resume-review-dialog";
+import type { ResumeReviewResult } from "@/lib/ai/career/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { computeResumeScore } from "@/lib/career/resume-score";
-import type { ResumeContent, ResumeEducationEntry, ResumeLanguageEntry, ResumeCertificateEntry } from "@/types";
+import { isResumeContentMeaningful, type ResumeContent, type ResumeEducationEntry, type ResumeLanguageEntry, type ResumeCertificateEntry } from "@/types";
 import type { ResumeData, ResumeTemplateId } from "./types";
 import type { ResumeSectionKind } from "@/lib/ai/career/types";
 
 const templates: ResumeTemplateId[] = ["MODERN", "PROFESSIONAL", "MINIMAL"];
 
+// Modern browsers handle Unicode in a `download` attribute filename fine —
+// this only strips characters that are genuinely unsafe in a filename
+// (path separators, quotes, control chars) and turns spaces into
+// underscores, so "Иван Иванов" becomes "Иван_Иванов_Resume.pdf" rather
+// than a meaningless "resume.pdf".
+function safeFileName(fullName: string): string {
+  const cleaned = fullName
+    .trim()
+    .replace(/[/\\:*?"<>|]/g, "")
+    .replace(/\s+/g, "_");
+  return cleaned || "Resume";
+}
+
 function formatSavedAt(iso: string, locale: string): string {
   return new Date(iso).toLocaleString(locale === "ru" ? "ru-RU" : "en-US", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
+export function ResumeView({ initialResume, suggestedTargetRole }: { initialResume: ResumeData; suggestedTargetRole: string | null }) {
   const { locale, dict } = useLocale();
   const page = dict.dashboard.resumePage;
 
-  const [title, setTitle] = useState(initialResume.title);
+  const [title, setTitle] = useState(initialResume.title || suggestedTargetRole || "");
   const [content, setContent] = useState<ResumeContent>(initialResume.content);
   const [template, setTemplate] = useState<ResumeTemplateId>(initialResume.template);
   const [resumeId] = useState(initialResume.id);
@@ -42,8 +61,39 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
   const [saving, setSaving] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
+  // The welcome screen (item 27) instead of a blank editor whenever there's
+  // nothing meaningful yet — `justAppeared` only drives the one-time
+  // entrance animation for the editor right after leaving welcome, not on
+  // every normal page load.
+  const [showWelcome, setShowWelcome] = useState(!isResumeContentMeaningful(initialResume.content));
+  const [justAppeared, setJustAppeared] = useState(false);
+  const [creatingWithAi, setCreatingWithAi] = useState(false);
+  const [aiGenerationDone, setAiGenerationDone] = useState(false);
+  // One-step undo for AI-applied free-text fields (item 32) — the value
+  // just before the last "Apply", cleared once undone. Manual typing never
+  // touches this; only `applyAiField` writes to it.
+  const [undoStack, setUndoStack] = useState<Partial<Record<"careerObjective" | "summary", string>>>({});
+
+  const applyAiField = (field: "careerObjective" | "summary", newText: string) => {
+    setUndoStack((prev) => ({ ...prev, [field]: content[field] }));
+    setContent((prev) => ({ ...prev, [field]: newText }));
+  };
+
+  const undoField = (field: "careerObjective" | "summary") => {
+    const previous = undoStack[field];
+    if (previous === undefined) return;
+    setContent((prev) => ({ ...prev, [field]: previous }));
+    setUndoStack((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    toast.success(page.undoneToast);
+  };
   const [draftSuggestion, setDraftSuggestion] = useState<{ careerObjective: string; summary: string; skills: string[] } | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [review, setReview] = useState<ResumeReviewResult | null>(null);
 
   const score = computeResumeScore(content, title, locale);
 
@@ -75,7 +125,11 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetRole: title }),
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.errorAi);
+        return;
+      }
       const data = (await response.json()) as { draft: { careerObjective: string; summary: string; skills: string[] } };
       setDraftSuggestion(data.draft);
     } catch {
@@ -96,6 +150,58 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
     setDraftSuggestion(null);
   };
 
+  /**
+   * The welcome screen's "Create with ProfyMind" — unlike `generateDraft`
+   * above (which shows a suggestion card for review on an already-active
+   * resume), this applies directly: there is nothing to overwrite yet, so
+   * the confirmation step `AiTextField`/`draftSuggestion` exist for
+   * elsewhere would just be friction here.
+   */
+  const createWithProfyMind = async () => {
+    if (!title.trim()) return;
+    setCreatingWithAi(true);
+    setAiGenerationDone(false);
+    try {
+      const response = await fetch(`/api/resume/${resumeId}/generate-draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetRole: title }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.errorAi);
+        setCreatingWithAi(false);
+        return;
+      }
+      const data = (await response.json()) as { draft: { careerObjective: string; summary: string; skills: string[] } };
+      setAiGenerationDone(true);
+      // A short beat so the loader's steps visibly land on "complete"
+      // instead of the resume snapping into view mid-animation.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setContent((prev) => ({
+        ...prev,
+        careerObjective: data.draft.careerObjective,
+        summary: data.draft.summary,
+        skills: Array.from(new Set([...prev.skills, ...data.draft.skills])),
+      }));
+      setShowWelcome(false);
+      setJustAppeared(true);
+    } catch {
+      toast.error(page.errorAi);
+    } finally {
+      setCreatingWithAi(false);
+    }
+  };
+
+  const enterManually = () => {
+    setShowWelcome(false);
+    setJustAppeared(true);
+  };
+
+  const scrollToExperience = () => {
+    document.getElementById("resume-experience-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const generateSection = async (section: ResumeSectionKind, sectionInput: Record<string, unknown>) => {
     try {
       const response = await fetch(`/api/resume/${resumeId}/generate-section`, {
@@ -103,7 +209,11 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section, sectionInput, targetRole: title }),
       });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.errorAi);
+        return null;
+      }
       const data = (await response.json()) as { suggestion: { text?: string; bullets?: string[]; skills?: string[] } };
       return data.suggestion;
     } catch {
@@ -112,16 +222,53 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
     }
   };
 
+  const checkResume = async () => {
+    if (!isResumeContentMeaningful(content)) {
+      toast.error(page.errorEmptyResume);
+      return;
+    }
+    setReviewing(true);
+    try {
+      const response = await fetch(`/api/resume/${resumeId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetRole: title }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : page.errorAi);
+        return;
+      }
+      const data = (await response.json()) as { review: ResumeReviewResult };
+      setReview(data.review);
+    } catch {
+      toast.error(page.errorAi);
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const downloadPdf = async () => {
+    if (!isResumeContentMeaningful(content)) {
+      toast.error(page.errorEmptyResume);
+      return;
+    }
     setDownloadingPdf(true);
     try {
       const response = await fetch(`/api/resume/${resumeId}/pdf`);
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "empty_resume" ? page.errorEmptyResume : page.errorPdf);
+        return;
+      }
       const blob = await response.blob();
+      // A 0-byte or near-empty response would otherwise silently download a
+      // broken/blank file — surfaced as the same error as a failed request.
+      if (blob.size < 100) throw new Error("empty_pdf");
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${content.personalInfo.fullName || "resume"}.pdf`;
+      link.download = `${safeFileName(content.personalInfo.fullName)}_Resume.pdf`;
       link.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -131,14 +278,40 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
     }
   };
 
+  if (showWelcome) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={page.title} description={page.subtitle} icon={FileText} tone="resume" />
+        {creatingWithAi ? (
+          <ResumeGenerationLoader done={aiGenerationDone} />
+        ) : (
+          <ResumeWelcome
+            targetRole={title}
+            onTargetRoleChange={setTitle}
+            onGenerate={createWithProfyMind}
+            onManual={enterManually}
+            generating={creatingWithAi}
+          />
+        )}
+      </div>
+    );
+  }
+
+  const showNoExperienceBanner = content.experience.length === 0 && content.projects.length === 0;
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={justAppeared ? { opacity: 0, y: 10, scale: 0.985 } : false}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title={page.title} description={page.subtitle} />
+        <PageHeader title={page.title} description={page.subtitle} icon={FileText} tone="resume" />
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
-          <Button variant="outline" onClick={downloadPdf} disabled={downloadingPdf}>
+          <Button variant="outline" onClick={downloadPdf} disabled={downloadingPdf || !isResumeContentMeaningful(content)}>
             {downloadingPdf ? <RotateCw className="animate-spin" /> : <Download />}
-            {page.downloadPdfCta}
+            {downloadingPdf ? page.generatingPdf : page.downloadPdfCta}
           </Button>
           <Button onClick={save} disabled={saving}>
             {saving ? <RotateCw className="animate-spin" /> : null}
@@ -150,6 +323,8 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
       <p className="text-muted-foreground text-xs">
         {updatedAt ? page.lastSavedTemplate.replace("{time}", formatSavedAt(updatedAt, locale)) : page.neverSaved}
       </p>
+
+      {showNoExperienceBanner && <NoExperienceBanner onAddExperience={scrollToExperience} />}
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v as "edit" | "preview")}>
         <TabsList>
@@ -234,47 +409,47 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-base">
-                    {page.sections.careerObjective}
-                    <AiTextButton
-                      label={page.aiAssistCta}
-                      onGenerate={async () => {
-                        const s = await generateSection("careerObjective", {});
-                        return s?.text ?? null;
-                      }}
-                      onResult={(text) => setContent((prev) => ({ ...prev, careerObjective: text }))}
-                    />
-                  </CardTitle>
+                  <CardTitle className="text-base">{page.sections.careerObjective}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Textarea
+                  <AiTextField
+                    label={page.sections.careerObjective}
                     value={content.careerObjective}
-                    onChange={(e) => setContent({ ...content, careerObjective: e.target.value })}
                     rows={2}
+                    onManualChange={(text) => setContent((prev) => ({ ...prev, careerObjective: text }))}
+                    onApply={(text) => applyAiField("careerObjective", text)}
+                    onGenerate={async () => {
+                      const s = await generateSection("careerObjective", {});
+                      return s?.text ?? null;
+                    }}
+                    canUndo={undoStack.careerObjective !== undefined}
+                    onUndo={() => undoField("careerObjective")}
                   />
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-base">
-                    {page.sections.summary}
-                    <AiTextButton
-                      label={page.aiAssistCta}
-                      onGenerate={async () => {
-                        const s = await generateSection("summary", { existingSkills: content.skills });
-                        return s?.text ?? null;
-                      }}
-                      onResult={(text) => setContent((prev) => ({ ...prev, summary: text }))}
-                    />
-                  </CardTitle>
+                  <CardTitle className="text-base">{page.sections.summary}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Textarea value={content.summary} onChange={(e) => setContent({ ...content, summary: e.target.value })} rows={3} />
+                  <AiTextField
+                    label={page.sections.summary}
+                    value={content.summary}
+                    rows={3}
+                    onManualChange={(text) => setContent((prev) => ({ ...prev, summary: text }))}
+                    onApply={(text) => applyAiField("summary", text)}
+                    onGenerate={async () => {
+                      const s = await generateSection("summary", { existingSkills: content.skills });
+                      return s?.text ?? null;
+                    }}
+                    canUndo={undoStack.summary !== undefined}
+                    onUndo={() => undoField("summary")}
+                  />
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card id="resume-experience-section">
                 <CardHeader>
                   <CardTitle className="text-base">{page.sections.experience}</CardTitle>
                 </CardHeader>
@@ -386,6 +561,15 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
 
             <div className="min-w-0 space-y-4">
               <ResumeScorePanel result={score} />
+              <Button
+                variant="outline"
+                className="hover-lift w-full"
+                onClick={checkResume}
+                disabled={reviewing || !isResumeContentMeaningful(content)}
+              >
+                {reviewing ? <RotateCw className="animate-spin" /> : <Sparkles />}
+                {reviewing ? page.review.checking : page.review.cta}
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -394,34 +578,8 @@ export function ResumeView({ initialResume }: { initialResume: ResumeData }) {
           <ResumePreview content={content} template={template} />
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
 
-function AiTextButton({
-  label,
-  onGenerate,
-  onResult,
-}: {
-  label: string;
-  onGenerate: () => Promise<string | null>;
-  onResult: (text: string) => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={async () => {
-        setLoading(true);
-        const text = await onGenerate();
-        setLoading(false);
-        if (text) onResult(text);
-      }}
-      disabled={loading}
-    >
-      {loading ? <RotateCw className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-      {label}
-    </Button>
+      <ResumeReviewDialog review={review} onOpenChange={(open) => !open && setReview(null)} />
+    </motion.div>
   );
 }

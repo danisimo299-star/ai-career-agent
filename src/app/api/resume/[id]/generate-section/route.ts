@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { resumeService, ResumeAccessError } from "@/server/services/resume.service";
 import { generateSectionSchema } from "@/lib/validation/resume.schema";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -29,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     if (error instanceof ResumeAccessError) return NextResponse.json({ error: error.message }, { status: 404 });
     if (error instanceof z.ZodError) return NextResponse.json({ error: "ai_invalid_response" }, { status: 502 });
+    if (error instanceof AIProviderUnavailableError) return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     console.error("resume.generateSection failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }

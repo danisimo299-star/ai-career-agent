@@ -1,29 +1,30 @@
 "use client";
 
+import { Target, Flame } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 interface MissionsHeaderProps {
   careerTitle: string | null;
   careerScore: number;
   roadmapProgressPercent: number;
   currentMilestoneTitle: string | null;
+  streakDays?: number;
 }
 
-export function MissionsHeader({ careerTitle, careerScore, roadmapProgressPercent, currentMilestoneTitle }: MissionsHeaderProps) {
+export function MissionsHeader({ careerTitle, careerScore, roadmapProgressPercent, currentMilestoneTitle, streakDays = 0 }: MissionsHeaderProps) {
   const { dict } = useLocale();
   const page = dict.dashboard.missionsPage;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
-        <p className="text-muted-foreground text-sm">{page.subtitle}</p>
-      </div>
+      <PageHeader title={page.title} description={page.subtitle} icon={Target} tone="tasks" />
 
       {careerTitle && (
         <Card>
-          <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
+          <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-5">
             <div>
               <p className="text-muted-foreground text-xs">{page.careerLabel}</p>
               <p className="truncate text-base font-semibold">{careerTitle}</p>
@@ -44,6 +45,13 @@ export function MissionsHeader({ careerTitle, careerScore, roadmapProgressPercen
             <div>
               <p className="text-muted-foreground text-xs">{page.currentMilestoneLabel}</p>
               <p className="truncate text-base font-semibold">{currentMilestoneTitle ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">{page.streakLabel}</p>
+              <p className={cn("flex items-center gap-1 text-base font-semibold", streakDays > 0 && "text-tool-resume")}>
+                <Flame className={cn("size-4", streakDays === 0 && "text-muted-foreground")} />
+                {page.streakTemplate.replace("{days}", String(streakDays))}
+              </p>
             </div>
           </CardContent>
         </Card>

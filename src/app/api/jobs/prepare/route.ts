@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { jobsService } from "@/server/services/jobs.service";
 import { prepareForJobSchema } from "@/lib/validation/job.schema";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     const preparation = await jobsService.prepareForJob(user.id, locale, parsed.data);
     return NextResponse.json(preparation);
   } catch (error) {
+    if (error instanceof AIProviderUnavailableError) return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     console.error("jobs.prepareForJob failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }

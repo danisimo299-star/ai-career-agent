@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { interviewService, InterviewAccessError } from "@/server/services/interview.service";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -17,6 +18,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (error instanceof InterviewAccessError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
+    if (error instanceof AIProviderUnavailableError) return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     console.error("interview.finishSession failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }

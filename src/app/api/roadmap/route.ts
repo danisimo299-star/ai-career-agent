@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { roadmapService } from "@/server/services/roadmap.service";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 const generateSchema = z.object({
   careerTitle: z.string().trim().min(1).max(200),
@@ -39,6 +40,10 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       console.error("roadmap.generate: AI response failed validation", error.flatten());
       return NextResponse.json({ error: "ai_invalid_response" }, { status: 502 });
+    }
+    if (error instanceof AIProviderUnavailableError) {
+      console.error("roadmap.generate: AI provider unavailable", error);
+      return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     }
     console.error("roadmap.generate failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });

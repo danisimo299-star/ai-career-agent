@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "animate-bounce",
+        "createdAt": "2026-08-22T15:06:06.202Z",
+        "reason": "staggered three-dot typing/thinking indicator in the Coach chat — the standard chat-UI convention (iMessage/Slack/WhatsApp/ChatGPT) for a repeating activity pulse, not a one-shot UI transition; exponential easing would look broken for a repeating pulse, not calmer"
+      }
+    ]
+  }
+}

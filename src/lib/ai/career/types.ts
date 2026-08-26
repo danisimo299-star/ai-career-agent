@@ -1,5 +1,6 @@
 import type { Locale } from "@/lib/i18n/config";
 import type { JobEmploymentType, JobExperienceLevel } from "@/lib/jobs/types";
+import type { ResumeContent } from "@/types";
 import type { QuestionId, QuestionSpec, QuestionCategory } from "./questionnaire";
 
 export type { QuestionId, QuestionSpec, QuestionCategory };
@@ -156,6 +157,24 @@ export interface ResumeSectionSuggestion {
   text?: string;
   bullets?: string[];
   skills?: string[];
+}
+
+export interface ResumeReviewContext {
+  locale: Locale;
+  targetRole: string;
+  /** The user's actual current resume — a review has to react to what's really there, not just profile data. */
+  content: ResumeContent;
+}
+
+/** "Проверить резюме" (item 12) — a short, grounded read, never 30 recommendations at once. Every array is capped at 3 by the response schema. */
+export interface ResumeReviewResult {
+  strengths: string[];
+  improvements: string[];
+  missing: string[];
+  /** One or two sentences on fit for `targetRole` specifically. */
+  fitNote: string;
+  /** The single most valuable next action — not a repeat of the improvements list. */
+  nextStep: string;
 }
 
 export type InterviewType = "GENERAL" | "TECHNICAL" | "BEHAVIORAL" | "HR" | "MIXED" | "RESUME_BASED";
@@ -400,6 +419,8 @@ export type CoachIntent =
   | "applications"
   | "general";
 
+export type CoachReplyStyle = "BRIEF" | "BALANCED" | "DETAILED";
+
 export interface CoachReplyContext {
   locale: Locale;
   profile: ProfileSnapshot;
@@ -407,6 +428,10 @@ export interface CoachReplyContext {
   /** Recent Coach turns only — never the unrelated onboarding-interview `ChatMessage` history. */
   history: ChatTurn[];
   message: string;
+  /** Settings-page preference (Settings → ProfyMind → reply style) — a real length/depth directive, not decorative. Defaults to "BALANCED" when absent (e.g. the mock provider ignores it). */
+  replyStyle?: CoachReplyStyle;
+  /** Aborts the underlying provider call when the client stops generation — see `AICompletionOptions.signal`. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -427,6 +452,27 @@ export interface CoachReplyResult {
   memoryFact: string | null;
 }
 
+/** The non-reply half of `CoachReplyResult` — everything the stream's trailing `done` event carries. */
+export interface CoachReplyMeta {
+  intent: CoachIntent;
+  memoryFact: string | null;
+}
+
+/**
+ * `streamCoachReply` yields the reply text as it's generated (`delta`
+ * events, one per chunk — always safe, user-visible text) so the client can
+ * render it token-by-token like a real chat model, then a single trailing
+ * `done` event with `content` (the exact text to persist as the assistant
+ * message — for a real provider this is just the concatenated deltas, but
+ * the mock provider's turn-tracking marker, see `stripCoachDisplayMarkers`,
+ * is appended here and here only, never sent as a visible delta) plus the
+ * metadata a streamed prose response can't carry inline (intent
+ * classification, an extracted memory fact) — computed via a second, fast,
+ * non-streamed call that runs concurrently with the streamed reply, not
+ * sequentially after it.
+ */
+export type CoachStreamEvent = { type: "delta"; text: string } | ({ type: "done"; content: string } & CoachReplyMeta);
+
 /**
  * The single contract every AI career-intelligence implementation must
  * satisfy. `MockCareerService` fabricates realistic answers deterministically
@@ -442,11 +488,12 @@ export interface AICareerService {
   generateRoadmap(input: RoadmapGenerationContext): Promise<RoadmapMilestoneResult[]>;
   generateResume(input: ResumeGenerationContext): Promise<ResumeDraftResult>;
   generateResumeSection(input: ResumeSectionContext): Promise<ResumeSectionSuggestion>;
+  reviewResume(input: ResumeReviewContext): Promise<ResumeReviewResult>;
   generateCareerMissions(input: CareerMissionsContext): Promise<CareerMissionsGenerationResult>;
   generateInterviewQuestion(input: InterviewQuestionContext): Promise<InterviewQuestionResult>;
   evaluateInterviewAnswer(input: InterviewAnswerContext): Promise<InterviewAnswerEvaluationResult>;
   generateInterviewReport(input: InterviewReportContext): Promise<InterviewReportResult>;
   generateJobPreparationPlan(input: JobPreparationContext): Promise<JobPreparationResult>;
   parseJobSearchQuery(input: JobSearchAssistantContext): Promise<JobSearchAssistantResult>;
-  generateCoachReply(input: CoachReplyContext): Promise<CoachReplyResult>;
+  streamCoachReply(input: CoachReplyContext): AsyncIterable<CoachStreamEvent>;
 }

@@ -9,3 +9,11 @@ export async function GET() {
   const messages = await coachService.listMessages(user.id);
   return NextResponse.json({ messages });
 }
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user?.id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  await coachService.clearHistory(user.id);
+  return NextResponse.json({ ok: true });
+}

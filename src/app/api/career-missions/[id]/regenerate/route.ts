@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { careerMissionService, CareerMissionAccessError } from "@/server/services/career-mission.service";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -21,6 +22,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (error instanceof z.ZodError) {
       console.error("careerMissions.regenerateMission: AI response failed validation", error.flatten());
       return NextResponse.json({ error: "ai_invalid_response" }, { status: 502 });
+    }
+    if (error instanceof AIProviderUnavailableError) {
+      console.error("careerMissions.regenerateMission: AI provider unavailable", error);
+      return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     }
     console.error("careerMissions.regenerateMission failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });

@@ -15,11 +15,12 @@ export default async function MissionsPage() {
 
   const locale = await getLocale();
 
-  const [today, historyRaw, roadmap, scoreSnapshot] = await Promise.all([
+  const [today, historyRaw, roadmap, scoreSnapshot, streak] = await Promise.all([
     careerMissionService.getToday(user.id, locale),
     careerMissionService.getHistory(user.id),
     roadmapRepository.findByUser(user.id),
     careerScoreService.getSnapshot(user.id),
+    careerMissionService.getStreak(user.id),
   ]);
 
   const currentMilestone = roadmap
@@ -41,6 +42,7 @@ export default async function MissionsPage() {
       roadmapProgressPercent={roadmap ? computeRoadmapProgress(roadmap.milestones).percent : 0}
       currentMilestoneTitle={currentMilestone?.title ?? null}
       history={history}
+      initialStreak={streak}
     />
   );
 }

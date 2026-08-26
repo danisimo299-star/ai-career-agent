@@ -33,7 +33,11 @@ export function CareerAnalysisView({
     setLoading(true);
     try {
       const response = await fetch("/api/career-analysis", { method: "POST" });
-      if (!response.ok) throw new Error("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.auth.register.errors.generic);
+        return;
+      }
 
       const data = (await response.json()) as {
         recommendations: Omit<RecommendationData, "id">[];
@@ -51,7 +55,7 @@ export function CareerAnalysisView({
   if (!readyForAnalysis && recommendations.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title={page.title} description={page.subtitle} />
+        <PageHeader title={page.title} description={page.subtitle} icon={Compass} />
         <EmptyState
           icon={Compass}
           title={page.notReadyTitle}
@@ -69,6 +73,7 @@ export function CareerAnalysisView({
       <PageHeader
         title={page.title}
         description={page.subtitle}
+        icon={Compass}
         action={
           <Button onClick={generate} disabled={loading} variant={recommendations.length > 0 ? "outline" : "default"}>
             {loading ? <RotateCw className="animate-spin" /> : <Sparkles />}

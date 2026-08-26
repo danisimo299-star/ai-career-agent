@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { interviewService } from "@/server/services/interview.service";
+import { AIProviderUnavailableError } from "@/lib/errors";
 
 const startSessionSchema = z.object({
   targetRole: z.string().trim().min(1).max(200),
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ session });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "ai_invalid_response" }, { status: 502 });
+    if (error instanceof AIProviderUnavailableError) return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
     console.error("interview.startSession failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }

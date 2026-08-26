@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "motion/react";
 import { CheckCircle2, XCircle, Clock3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -26,19 +27,20 @@ export function MissionHistory({ history }: { history: MissionHistoryEntry[] }) 
           <p className="text-muted-foreground text-sm">{page.historyEmpty}</p>
         ) : (
           <ul className="space-y-2">
-            {relevant.map((mission) => {
+            {relevant.map((mission, i) => {
               const isDone = mission.status === "COMPLETED";
               const Icon = isDone ? CheckCircle2 : mission.status === "EXPIRED" ? Clock3 : XCircle;
               return (
-                <li key={mission.id} className="flex items-center gap-2.5 text-sm">
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0",
-                      isDone ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground"
-                    )}
-                  />
+                <motion.li
+                  key={mission.id}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: i * 0.03, ease: "easeOut" }}
+                  className="flex items-center gap-2.5 text-sm"
+                >
+                  <Icon className={cn("size-4 shrink-0", isDone ? "text-tool-tasks" : "text-muted-foreground")} />
                   <span className={cn(isDone ? "" : "text-muted-foreground line-through")}>{mission.title}</span>
-                </li>
+                </motion.li>
               );
             })}
           </ul>

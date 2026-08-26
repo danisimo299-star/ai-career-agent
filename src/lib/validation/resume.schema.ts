@@ -66,6 +66,10 @@ export const generateDraftSchema = z.object({
   targetRole: z.string().trim().min(1).max(200),
 });
 
+export const reviewResumeSchema = z.object({
+  targetRole: z.string().trim().min(1).max(200),
+});
+
 export const generateSectionSchema = z.object({
   section: z.enum(["summary", "careerObjective", "experienceBullets", "projectDescription", "skills"]),
   /** The role currently typed in the editor, which may not be saved yet — always preferred over the persisted resume title so a suggestion never uses a stale or empty role. */
