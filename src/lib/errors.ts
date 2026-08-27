@@ -25,3 +25,19 @@ export class AIProviderUnavailableError extends Error {
     this.name = "AIProviderUnavailableError";
   }
 }
+
+/**
+ * A Career Interview answer lost an optimistic-concurrency race — another
+ * request for the same user already advanced `Profile.interviewVersion`
+ * first (a genuine duplicate/overlapping submit, not a normal error). The
+ * whole write transaction was rolled back, so nothing was corrupted or
+ * duplicated; the caller should surface a plain "try again" and the client
+ * retries with the SAME answer once it re-reads fresh state — see
+ * `chat.repository.ts`'s `appendTurnAndUpdateProfile`.
+ */
+export class ConcurrentInterviewWriteError extends Error {
+  constructor() {
+    super("Interview answer conflicted with a concurrent write for the same user.");
+    this.name = "ConcurrentInterviewWriteError";
+  }
+}

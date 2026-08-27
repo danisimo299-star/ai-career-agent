@@ -54,30 +54,50 @@ export function buildAnalyzeUserPrompt(input: AnalyzeUserInput): string {
   ].join("\n");
 }
 
-export function buildCareerRecommendationsPrompt(input: CareerAnalysisContext): string {
+/**
+ * One combined Career Analysis generation — summary + insights + career
+ * recommendations in a single Ollama round trip, instead of two separate
+ * prompts/calls that used to insert the same `User profile: {...}` JSON
+ * blob twice and pay for two full generations. See item 21/23 of the
+ * performance brief: this is the single biggest latency win available
+ * before touching anything HH-related, since a local single-instance Ollama
+ * server effectively serializes concurrent requests anyway.
+ */
+export function buildCareerAnalysisPrompt(input: CareerAnalysisContext): string {
   return [
-    "You are a career analyst. Based on the user profile below, recommend exactly 5 suitable professions, best match first.",
+    "You are a career analyst grounded in the REAL Russian job market — not a brainstorming assistant. Produce a complete career analysis for the user profile below: a quick-take summary, a few personalized insights, and exactly 5 suitable professions (best match first).",
+    "CRITICAL — each recommendation's `title` must be a real, common job title employers actually post on job boards (hh.ru-style), in the SAME rough register a recruiter would type it — never an invented, buzzword-heavy, hyper-niche specialization (e.g. never something like \"AI Workflow Optimization Strategist\" or \"Business Transformation Architect\"). If a niche specialization genuinely fits the user's interests, name the broad, real profession it's a specialization of instead, and mention the specialization inside `reasoning`.",
+    "This is a soft guideline only — every title you return is ALSO checked programmatically against hh.ru's real professional-role catalog after you respond, and anything that doesn't match a real category is rejected outright regardless of how you phrase it. So there is no benefit to being clever or unique here — plain, ordinary, exactly-what-a-recruiter-would-type titles are what pass.",
+    input.excludeTitles && input.excludeTitles.length > 0
+      ? `These titles were already tried and rejected as not matching any real hh.ru profession category — do NOT repeat them or close synonyms of them, pick genuinely different directions: ${JSON.stringify(input.excludeTitles)}`
+      : "",
+    "CRITICAL — `title` is the user's realistic CAREER GOAL, but it must still be a title someone could search for, not a fantasy label. Separately, `firstJobTitle` is the realistic ENTRY-LEVEL role a candidate with this user's current profile (age/experience/skills) could actually apply for right now to start toward `title` — e.g. if `title` is \"Machine Learning Engineer\" and the user has no experience, `firstJobTitle` might be \"Junior Data Analyst\" or \"Python Developer Intern\", never a senior/lead/head title. If the user's profile already looks entry-level-appropriate for `title` itself, `firstJobTitle` can equal `title`.",
+    "`hhSearchTitle`: the short, plain search string you'd type into a job board to find `firstJobTitle`-level real vacancies for this path — strip qualifiers a search engine would choke on, keep it to 2-4 words.",
+    "`searchAliases`: 2-4 real alternate titles/spellings for the same role a Russian job board would also list it under (e.g. for Frontend Developer: \"Frontend-разработчик\", \"Веб-разработчик\", \"JavaScript Developer\") — never invented synonyms, only titles that genuinely exist in the market.",
+    "`summary`: 2-3 sentences MAXIMUM (roughly 200-260 characters) — the single most important takeaway about this user's career direction, written for someone who will only read this one line. No bullet points, no lists, just plain prose.",
+    "`insights`: 4-6 short, specific, personalized observations about this user — one sentence each (max ~160 characters), second person ('you...').",
     languageDirective(input.locale),
     `User profile: ${JSON.stringify(input.profile)}`,
-    "Respond as strict JSON: { \"recommendations\": array of 5 objects }, each with this exact shape:",
+    "Respond as strict JSON with this exact shape:",
     `{
-  "title": string,
-  "matchScore": number, // 0-100
-  "reasoning": string, // 1-2 sentences, specific to this user
-  "requiredSkills": string[], // 3-5 items
-  "learningTimeMonths": number,
-  "growthPotential": "LOW" | "MEDIUM" | "HIGH",
-  "difficultyLevel": "EASY" | "MEDIUM" | "HARD"
+  "summary": string,
+  "insights": string[],
+  "recommendations": [
+    {
+      "title": string,
+      "matchScore": number, // 0-100
+      "reasoning": string, // 1-2 sentences (max ~220 characters), specific to this user
+      "requiredSkills": string[], // 3-5 items, short skill names
+      "learningTimeMonths": number,
+      "growthPotential": "LOW" | "MEDIUM" | "HIGH",
+      "difficultyLevel": "EASY" | "MEDIUM" | "HARD",
+      "hhSearchTitle": string, // short real search string, 2-4 words
+      "firstJobTitle": string, // realistic entry-level title for this user right now
+      "searchAliases": string[] // 2-4 real alternate titles
+    }
+    // ... exactly 5 objects total
+  ]
 }`,
-  ].join("\n");
-}
-
-export function buildCareerInsightsPrompt(input: CareerAnalysisContext): string {
-  return [
-    "Generate 4-6 short, specific, personalized career insights about this user — one sentence each, second person ('you...').",
-    languageDirective(input.locale),
-    `User profile: ${JSON.stringify(input.profile)}`,
-    'Respond as strict JSON: { "insights": string[] }',
   ].join("\n");
 }
 
@@ -89,8 +109,9 @@ export function buildRoadmapPrompt(input: RoadmapGenerationContext): string {
     `Current Career Score (0-100, may be null): ${input.careerScore ?? "unknown"}`,
     "Use all of this to personalize which skills to emphasize and how much detail/pacing to assume — someone with more relevant skills already needs a shorter path.",
     languageDirective(input.locale),
-    "Return 6 to 10 ordered milestones, from foundational to job-ready (e.g. foundation, 2-4 core skill milestones specific to this career, portfolio, resume, interview prep, job applications). Each milestone needs 3-6 concrete tasks.",
+    "Return 6 to 8 ordered milestones, from foundational to job-ready (e.g. foundation, 2-3 core skill milestones specific to this career, portfolio, resume, interview prep, job applications). Each milestone needs 3-4 concrete tasks.",
     "Do NOT include a URL for any resource — resource links are attached separately from a verified catalog, never invent one.",
+    "IMPORTANT for length: only the FIRST task of each milestone should have 1-2 `resources` entries — every other task in that milestone must have an empty `resources: []`. The app only ever displays one set of resources per milestone, so resources on later tasks are wasted, never shown, and only make the response longer.",
     "Respond as strict JSON: { \"milestones\": array of milestone objects }, each with this exact shape:",
     `{
   "title": string,
@@ -102,7 +123,7 @@ export function buildRoadmapPrompt(input: RoadmapGenerationContext): string {
   "tasks": [
     {
       "title": string, // a specific, concrete learning task (e.g. "JOIN" not "learn SQL")
-      "resources": [{ "title": string, "type": "YOUTUBE"|"DOCUMENTATION"|"COURSE"|"BOOK"|"ARTICLE", "provider"?: string, "difficulty"?: "BEGINNER"|"INTERMEDIATE"|"ADVANCED", "language"?: string }]
+      "resources": [{ "title": string, "type": "YOUTUBE"|"DOCUMENTATION"|"COURSE"|"BOOK"|"ARTICLE", "provider"?: string, "difficulty"?: "BEGINNER"|"INTERMEDIATE"|"ADVANCED", "language"?: string }] // ONLY on this milestone's first task, [] on every other task
     }
   ]
 }`,
@@ -186,6 +207,7 @@ export function buildCareerMissionsPrompt(input: CareerMissionsContext): string 
     "Rank missions by priority (higher number = higher priority = do this first): prioritize the current milestone's incomplete tasks, then skill gaps implied by Career DNA/Score, then general progress. The single highest-priority mission becomes 'today's main mission' — make it count.",
     "If a mission is a direct, concrete elaboration of one of the incomplete roadmap tasks listed above, set relatedTaskTitle to that task's exact title string; otherwise set it to null. Never invent a task title that wasn't in the list.",
     "Do NOT include a URL for any resource — resource links are attached separately from a verified catalog, never invent one.",
+    "IMPORTANT for length: keep instructions to 3-4 steps per mission, and at most 1 resource entry per mission (0 or 1, never more) — the response must stay compact enough to finish within the output budget.",
     languageDirective(input.locale),
     "Respond as strict JSON with this exact shape:",
     `{
@@ -194,7 +216,7 @@ export function buildCareerMissionsPrompt(input: CareerMissionsContext): string 
       "title": string,
       "description": string, // 1 sentence
       "goal": string, // 1 sentence, the concrete outcome
-      "instructions": string[], // 3-6 concrete numbered steps
+      "instructions": string[], // 3-4 concrete numbered steps
       "whyItMatters": string, // 1 sentence, tied to their career goal
       "expectedResult": string, // 1 sentence, what "done" looks like
       "estimatedMinutes": number,
@@ -202,7 +224,7 @@ export function buildCareerMissionsPrompt(input: CareerMissionsContext): string 
       "skill": string | null,
       "relatedTaskTitle": string | null,
       "priority": number,
-      "resources": [{ "title": string, "type": "YOUTUBE"|"DOCUMENTATION"|"COURSE"|"BOOK"|"ARTICLE", "provider"?: string, "difficulty"?: "BEGINNER"|"INTERMEDIATE"|"ADVANCED", "language"?: string }]
+      "resources": [{ "title": string, "type": "YOUTUBE"|"DOCUMENTATION"|"COURSE"|"BOOK"|"ARTICLE", "provider"?: string, "difficulty"?: "BEGINNER"|"INTERMEDIATE"|"ADVANCED", "language"?: string }] // 0 or 1 entries
     }
   ],
   "insight": string // one short, specific sentence about the user's current focus/gap, grounded in the actual data above — not a generic platitude

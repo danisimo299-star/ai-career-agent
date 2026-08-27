@@ -81,6 +81,10 @@ const recommendationText: Record<ResumeRecommendationKey, { ru: string; en: stri
   addSummary: { ru: "Добавь короткое профессиональное резюме о себе.", en: "Add a short professional summary about yourself." },
   addExperienceOrProjects: { ru: "Добавь хотя бы один опыт работы или проект.", en: "Add at least one experience entry or project." },
   addEducation: { ru: "Добавь информацию об образовании.", en: "Add your education." },
+  addExperienceBullets: {
+    ru: "Добавь 2-3 пункта о своих обязанностях и результатах к каждому месту работы.",
+    en: "Add 2-3 bullet points about your responsibilities and results to each role.",
+  },
   addMeasurableResults: { ru: "Добавь измеримые результаты в описания опыта — цифры, %, итоги.", en: "Add measurable results to your experience bullets — numbers, %, outcomes." },
   addMoreSkills: { ru: "Добавь ещё несколько релевантных навыков.", en: "Add a few more relevant skills." },
   addKeywords: { ru: "Упомяни больше терминов, релевантных целевой позиции.", en: "Mention more keywords relevant to the target role." },

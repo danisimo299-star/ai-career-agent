@@ -8,7 +8,7 @@ import { JobsView } from "@/components/jobs/jobs-view";
 import type { JobSearchResultItemData, SavedJobData } from "@/components/jobs/types";
 
 interface JobsPageProps {
-  searchParams: Promise<{ role?: string; city?: string }>;
+  searchParams: Promise<{ role?: string; city?: string; roleId?: string }>;
 }
 
 export default async function JobsPage({ searchParams }: JobsPageProps) {
@@ -27,9 +27,20 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   // onboarding motivation keys (e.g. "findFirstJob"), never a profession title.
   const defaultTargetRole = params.role || roadmap?.careerTitle || recommendations[0]?.title || "";
   const defaultCity = params.city || profile?.city || undefined;
+  // A validated recommendation already resolved to a real HH professional
+  // role (see `career-market.service.ts`) — reuse that id here so Jobs opens
+  // the exact same, already-checked market entity instead of re-guessing
+  // from free text (item 18/39 of the market-reality brief).
+  const matchingRecommendation = recommendations.find((rec) => rec.title === defaultTargetRole);
+  const defaultRoleId = params.roleId ? Number(params.roleId) : (matchingRecommendation?.hhProfessionalRoleId ?? undefined);
 
   const initial = defaultTargetRole
-    ? await jobsService.search(user.id, { targetRole: defaultTargetRole, city: defaultCity, sort: "bestMatch" })
+    ? await jobsService.search(user.id, {
+        targetRole: defaultTargetRole,
+        city: defaultCity,
+        professionalRoleIds: defaultRoleId ? [defaultRoleId] : undefined,
+        sort: "bestMatch",
+      })
     : { results: [], hhSearchUrl: "", providerName: "mock" };
 
   return (
@@ -37,6 +48,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
       initialResults={initial.results as unknown as JobSearchResultItemData[]}
       initialHhSearchUrl={initial.hhSearchUrl}
       initialProviderName={initial.providerName}
+      initialBroaderMarket={initial.broaderMarket ?? null}
       initialSavedJobs={
         savedJobs.map((job) => ({
           ...job,

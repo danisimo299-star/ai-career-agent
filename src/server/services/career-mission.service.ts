@@ -25,6 +25,7 @@ export class CareerMissionAccessError extends Error {
 const MISSIONS_PER_DAY = 5;
 const HISTORY_DAYS = 7;
 const STREAK_LOOKBACK_DAYS = 60;
+const AI_CALL_TIMEOUT_MS = 120_000;
 
 /**
  * Server-side "today," date-only, UTC. This project has no per-user
@@ -139,24 +140,32 @@ export const careerMissionService = {
       careerMissionRepository.listRecentByUser(userId, daysAgo(today, HISTORY_DAYS)),
     ]);
 
-    const generation = await getAICareerService().generateCareerMissions({
-      locale,
-      profile: toProfileSnapshot(profile),
-      dna: scoreSnapshot.dna,
-      careerScore: profile?.careerScore ?? null,
-      careerTitle: context.roadmap.careerTitle,
-      currentMilestone: context.currentMilestone
-        ? {
-            title: context.currentMilestone.title,
-            description: context.currentMilestone.description,
-            skills: context.currentMilestone.skills,
-          }
-        : null,
-      incompleteTasks: context.incompleteTasks,
-      completedMissionTitles: recentMissions.filter((m) => m.status === "COMPLETED").map((m) => m.title),
-      skippedMissionTitles: recentMissions.filter((m) => m.status === "SKIPPED").map((m) => m.title),
-      count: MISSIONS_PER_DAY,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AI_CALL_TIMEOUT_MS);
+    let generation;
+    try {
+      generation = await getAICareerService().generateCareerMissions({
+        locale,
+        profile: toProfileSnapshot(profile),
+        dna: scoreSnapshot.dna,
+        careerScore: profile?.careerScore ?? null,
+        careerTitle: context.roadmap.careerTitle,
+        currentMilestone: context.currentMilestone
+          ? {
+              title: context.currentMilestone.title,
+              description: context.currentMilestone.description,
+              skills: context.currentMilestone.skills,
+            }
+          : null,
+        incompleteTasks: context.incompleteTasks,
+        completedMissionTitles: recentMissions.filter((m) => m.status === "COMPLETED").map((m) => m.title),
+        skippedMissionTitles: recentMissions.filter((m) => m.status === "SKIPPED").map((m) => m.title),
+        count: MISSIONS_PER_DAY,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const missionsInput = generation.missions.map((mission) =>
       toCreateInput(

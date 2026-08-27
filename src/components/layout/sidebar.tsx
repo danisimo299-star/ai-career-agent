@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { dashboardNav, type NavItem } from "@/config/nav";
-import { siteConfig } from "@/config/site";
+import { ProfyMindLogo } from "@/components/brand/profymind-logo";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sparkles, ChevronsUpDown, ChevronDown, User, Settings, LogOut, Rocket } from "lucide-react";
+import { ChevronsUpDown, ChevronDown, User, Settings, LogOut, Rocket } from "lucide-react";
 
 function isNavItemActive(pathname: string, href: string): boolean {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
@@ -27,6 +27,7 @@ function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
   return (
     <Link
       href={item.href}
+      data-tour={item.href === "/dashboard/coach" ? "chat" : undefined}
       className={cn(
         "relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
         isActive
@@ -54,6 +55,7 @@ function UserPanel({ userName, userEmail, targetRole }: UserPanelProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-tour="profile"
         className="hover:bg-sidebar-accent focus-visible:ring-sidebar-ring flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors duration-150 outline-none focus-visible:ring-2"
       >
         <div className="min-w-0 flex-1">
@@ -125,8 +127,9 @@ export function Sidebar({ userName, userEmail, targetRole }: SidebarProps) {
   return (
     <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r md:flex">
       <div className="flex h-14 items-center gap-2 border-b px-5">
-        <Sparkles className="text-primary size-4.5" />
-        <span className="text-sm font-semibold tracking-tight">{siteConfig.name}</span>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <ProfyMindLogo size="sm" className="text-sm tracking-tight" />
+        </Link>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5">
@@ -136,6 +139,7 @@ export function Sidebar({ userName, userEmail, targetRole }: SidebarProps) {
 
         <button
           type="button"
+          data-tour="tools"
           onClick={() => setToolsOpen((v) => !v)}
           className={cn(
             "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mt-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",

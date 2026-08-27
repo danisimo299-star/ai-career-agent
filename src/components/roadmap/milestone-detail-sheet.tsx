@@ -92,11 +92,11 @@ function MilestoneDetailContent({
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 text-sm">
+              <div className="flex items-start gap-2">
                 <Lightbulb className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                 <div>
                   <p className="text-muted-foreground text-xs">{page.whyItMattersLabel}</p>
-                  <p>{milestone.whyItMatters}</p>
+                  <p className="text-[15px] leading-relaxed">{milestone.whyItMatters}</p>
                 </div>
               </div>
 
@@ -122,11 +122,11 @@ function MilestoneDetailContent({
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 text-sm">
+              <div className="flex items-start gap-2">
                 <Sparkles className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                 <div>
                   <p className="text-muted-foreground text-xs">{page.expectedResultLabel}</p>
-                  <p>{milestone.expectedResult}</p>
+                  <p className="text-[15px] leading-relaxed">{milestone.expectedResult}</p>
                 </div>
               </div>
             </>

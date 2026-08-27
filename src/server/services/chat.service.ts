@@ -1,10 +1,14 @@
 import type { Prisma, WorkFormat } from "@prisma/client";
 import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { chatRepository } from "@/server/repositories/chat.repository";
 import { profileRepository } from "@/server/repositories/profile.repository";
+import { interviewAttemptRepository } from "@/server/repositories/interview-attempt.repository";
 import { toProfileSnapshot } from "@/lib/ai/career/profile-snapshot";
 import { getAICareerService } from "@/lib/ai/career/get-career-service";
+import { estimateCareerDna } from "@/lib/ai/career/dna-heuristic";
+import type { CareerDnaScores } from "@/lib/ai/career/types";
 import {
   pickNextQuestionId,
   estimateQuestionnaireLength,
@@ -14,6 +18,7 @@ import {
 } from "@/lib/ai/career/questionnaire";
 import { resolveQuestionPrompt, resolveOptionLabel } from "@/lib/ai/career/questionnaire-copy";
 import type { QuestionSpec } from "@/lib/ai/career/types";
+import { createTimer } from "@/lib/dev-timing";
 
 export interface QuestionnaireAnswerInput {
   content?: string;
@@ -74,14 +79,80 @@ async function buildFirstQuestion(userId: string, locale: Locale) {
   return { dict, firstQuestion };
 }
 
+const ACKNOWLEDGEMENT_TIMEOUT_MS = 8000;
+const ACKNOWLEDGEMENT_MAX_ATTEMPTS = 2;
+
+function pickDeterministicAcknowledgement(dict: Dictionary, seed: number, isComplete: boolean): string {
+  if (isComplete) return dict.questionnaire.readyReply;
+  const pool = dict.questionnaire.acknowledgements;
+  return pool[seed % pool.length];
+}
+
+/**
+ * The Questionnaire's own state machine (`pickNextQuestionId`,
+ * `resolveQuestionPrompt`) is 100% deterministic — the AI's only role each
+ * turn is a decorative one-sentence acknowledgement (+ a Career DNA nudge).
+ * That's real value for a genuinely free-text answer, but it must never be
+ * allowed to block a plain multiple-choice click: a single slow/cold local
+ * Ollama call turning "Continue" into a failed submit is exactly the bug
+ * this function exists to prevent (see the interview-reliability brief).
+ *
+ * - Structured answers (single/multi/yesNo/skipped-text): skip the AI call
+ *   entirely, use a deterministic rotating acknowledgement + the same
+ *   heuristic DNA estimate `MockCareerService` already uses.
+ * - Genuine free text: try the AI, with a hard per-attempt timeout and one
+ *   short retry for a transient failure — but ALWAYS resolve to *something*
+ *   usable rather than throwing, falling back to the same deterministic
+ *   path on total failure. The answer is saved either way.
+ */
+async function resolveAcknowledgement(params: {
+  needsAi: boolean;
+  dict: Dictionary;
+  seed: number;
+  isComplete: boolean;
+  combinedTextForDna: string;
+  aiInput: Parameters<ReturnType<typeof getAICareerService>["analyzeUser"]>[0];
+  timer: ReturnType<typeof createTimer>;
+}): Promise<{ reply: string; dna: CareerDnaScores | null }> {
+  const fallback = () => ({
+    reply: pickDeterministicAcknowledgement(params.dict, params.seed, params.isComplete),
+    dna: estimateCareerDna(params.combinedTextForDna),
+  });
+
+  if (!params.needsAi) {
+    params.timer.mark("acknowledgement:deterministic");
+    return fallback();
+  }
+
+  for (let attempt = 1; attempt <= ACKNOWLEDGEMENT_MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ACKNOWLEDGEMENT_TIMEOUT_MS);
+    try {
+      const result = await getAICareerService().analyzeUser({ ...params.aiInput, signal: controller.signal });
+      params.timer.mark(`acknowledgement:ai (attempt ${attempt})`);
+      return { reply: result.reply, dna: result.dna ?? estimateCareerDna(params.combinedTextForDna) };
+    } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[chat.service] analyzeUser attempt ${attempt} failed:`, error instanceof Error ? error.message : error);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  params.timer.mark("acknowledgement:ai-failed-fallback");
+  return fallback();
+}
+
 export const chatService = {
   async getConversation(userId: string, locale: Locale) {
-    const existing = await chatRepository.listByUser(userId);
+    const attempt = await interviewAttemptRepository.getOrCreateActive(userId);
+    const existing = await chatRepository.listByAttempt(attempt.id);
     if (existing.length > 0) return existing;
 
     const { dict, firstQuestion } = await buildFirstQuestion(userId, locale);
-    await chatRepository.append(userId, "ASSISTANT", dict.questionnaire.intro, firstQuestion as unknown as Prisma.InputJsonValue | null);
-    return chatRepository.listByUser(userId);
+    await chatRepository.append(userId, "ASSISTANT", dict.questionnaire.intro, attempt.id, firstQuestion as unknown as Prisma.InputJsonValue | null);
+    return chatRepository.listByAttempt(attempt.id);
   },
 
   async getProgress(userId: string) {
@@ -93,12 +164,16 @@ export const chatService = {
   },
 
   async sendMessage(userId: string, locale: Locale, answer: QuestionnaireAnswerInput) {
+    const timer = createTimer("interview.sendMessage");
     const dict = getDictionary(locale);
-    const [history, profile] = await Promise.all([chatRepository.listByUser(userId), profileRepository.findByUserId(userId)]);
+    const attempt = await interviewAttemptRepository.getOrCreateActive(userId);
+    const [history, profile] = await Promise.all([chatRepository.listByAttempt(attempt.id), profileRepository.findByUserId(userId)]);
+    timer.mark("read");
 
     const coveredRaw = profile?.interviewTopicsCovered ?? [];
     const state = deriveState(coveredRaw);
     state.prioritizedSalary = (profile?.careerPriorities ?? []).includes("salary");
+    const expectedVersion = profile?.interviewVersion ?? 0;
 
     const snapshotBefore = toProfileSnapshot(profile);
     const answeredId = answer.questionId ?? pickNextQuestionId(snapshotBefore, state);
@@ -182,8 +257,6 @@ export const chatService = {
       }
     }
 
-    await chatRepository.append(userId, "USER", displayText || otherText || "…");
-
     // ---- Decide what's next, purely from the updated state ----
     const snapshotAfter = toProfileSnapshot(profile);
     if (typeof profileUpdate.preferredFormat === "string") snapshotAfter.preferredFormat = profileUpdate.preferredFormat;
@@ -198,25 +271,76 @@ export const chatService = {
       if (interestKey) context.interest = resolveOptionLabel("interests", interestKey, dict);
     }
 
-    const analysis = await getAICareerService().analyzeUser({
-      locale,
-      profile: snapshotAfter,
-      history: history.map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content })),
-      latestUserMessage: displayText || otherText,
-      justAnsweredCategory: def?.category ?? null,
-      nextQuestionCategory,
-      context,
+    // Only a genuinely free-text, non-skipped answer benefits from AI
+    // nuance — every structured question type is answered from a fixed,
+    // already-translated option set the acknowledgement can't meaningfully
+    // react to beyond restating it (see `resolveAcknowledgement`'s doc comment).
+    const needsAi = def?.type === "text" && !answer.skipped && Boolean(otherText);
+    const userMessageText = displayText || otherText || "…";
+
+    const { reply, dna } = await resolveAcknowledgement({
+      needsAi,
+      dict,
+      seed: newCovered.length,
+      isComplete,
+      combinedTextForDna: [profile?.personalitySummary, userMessageText].filter(Boolean).join(" "),
+      aiInput: {
+        locale,
+        profile: snapshotAfter,
+        history: history.map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content })),
+        latestUserMessage: userMessageText,
+        justAnsweredCategory: def?.category ?? null,
+        nextQuestionCategory,
+        context,
+      },
+      timer,
     });
 
     const nextQuestion: QuestionSpec | null = nextId ? { id: nextId, prompt: resolveQuestionPrompt(nextId, dict, context) } : null;
-    await chatRepository.append(userId, "ASSISTANT", analysis.reply, nextQuestion as unknown as Prisma.InputJsonValue | null);
 
     profileUpdate.interviewTopicsCovered = newCovered;
-    if (analysis.dna) profileUpdate.careerDna = analysis.dna as unknown as Prisma.InputJsonValue;
+    if (dna) profileUpdate.careerDna = dna as unknown as Prisma.InputJsonValue;
     if (isComplete) profileUpdate.questionnaireCompleted = true;
-    await profileRepository.upsert(userId, profileUpdate);
+
+    await chatRepository.appendTurnAndUpdateProfile({
+      userId,
+      attemptId: attempt.id,
+      userContent: userMessageText,
+      assistantContent: reply,
+      assistantQuestionSpec: nextQuestion as unknown as Prisma.InputJsonValue | null,
+      expectedVersion,
+      profileUpdate,
+    });
+    timer.mark("write");
+
+    if (isComplete) await interviewAttemptRepository.complete(attempt.id);
 
     const progress = computeProgress(snapshotAfter, { ...state, covered: normalizeCovered(newCovered) });
-    return { reply: analysis.reply, nextQuestion, isComplete, progressPercent: progress.percent, step: progress.step, totalSteps: progress.total };
+    timer.done();
+    return { reply, nextQuestion, isComplete, progressPercent: progress.percent, step: progress.step, totalSteps: progress.total };
+  },
+
+  /**
+   * "Пройти интервью заново" (item 8 of the reliability brief) — closes out
+   * the current attempt (if any) as ABANDONED unless it's already COMPLETED
+   * (a completed attempt's history is worth keeping as-is), starts a fresh
+   * `InterviewAttempt`, and resets only the interview-progress fields on
+   * `Profile` — `careerInsights`/`careerSummary`/`CareerRecommendation`/
+   * `Roadmap`/`Resume` are deliberately untouched here: the OLD career
+   * profile stays fully active and usable until the NEW attempt actually
+   * completes (item 14), at which point the existing Career Analysis
+   * generation flow naturally replaces recommendations for whatever the new
+   * answers produce.
+   */
+  async restartInterview(userId: string) {
+    const active = await interviewAttemptRepository.findActive(userId);
+    if (active) await interviewAttemptRepository.abandon(active.id);
+
+    await interviewAttemptRepository.create(userId);
+    await profileRepository.upsert(userId, {
+      interviewTopicsCovered: [],
+      questionnaireCompleted: false,
+      careerPriorities: [],
+    });
   },
 };

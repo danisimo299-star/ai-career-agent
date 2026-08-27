@@ -1,6 +1,6 @@
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { estimateCareerDna } from "./dna-heuristic";
-import { professionCatalog, insightTemplates } from "./mock-data";
+import { professionCatalog, insightTemplates, summaryTemplates } from "./mock-data";
 import { buildMockRoadmap } from "./mock-roadmap";
 import { buildMockCareerMissions } from "./mock-missions";
 import { buildMockInterviewQuestion, evaluateMockInterviewAnswer, generateMockInterviewReport } from "./mock-interview";
@@ -13,7 +13,7 @@ import type {
   AnalyzeUserInput,
   UserAnalysisResult,
   CareerAnalysisContext,
-  CareerRecommendationResult,
+  CareerAnalysisResult,
   RoadmapGenerationContext,
   RoadmapMilestoneResult,
   ResumeGenerationContext,
@@ -71,19 +71,22 @@ export class MockCareerService implements AICareerService {
     return { reply, dna };
   }
 
-  async generateCareerRecommendations(input: CareerAnalysisContext): Promise<CareerRecommendationResult[]> {
+  async generateCareerAnalysis(input: CareerAnalysisContext): Promise<CareerAnalysisResult> {
     const interests = input.profile.interests.length > 0 ? input.profile.interests : ["other"];
+    const excluded = new Set(input.excludeTitles ?? []);
 
-    const scored = professionCatalog.map((profession) => {
-      const overlap = profession.interestTags.filter((tag) => interests.includes(tag)).length;
-      return { profession, overlap };
-    });
+    const scored = professionCatalog
+      .filter((profession) => !excluded.has(profession.title[input.locale]))
+      .map((profession) => {
+        const overlap = profession.interestTags.filter((tag) => interests.includes(tag)).length;
+        return { profession, overlap };
+      });
 
     scored.sort((a, b) => b.overlap - a.overlap);
     const top = scored.slice(0, 5);
     const maxOverlap = Math.max(1, top[0]?.overlap ?? 1);
 
-    return top.map(({ profession, overlap }) => ({
+    const recommendations = top.map(({ profession, overlap }) => ({
       title: profession.title[input.locale],
       matchScore: Math.min(97, 60 + Math.round((overlap / maxOverlap) * 35)),
       reasoning: profession.reasoning[input.locale],
@@ -91,15 +94,21 @@ export class MockCareerService implements AICareerService {
       learningTimeMonths: profession.learningTimeMonths,
       growthPotential: profession.growthPotential,
       difficultyLevel: profession.difficultyLevel,
+      hhSearchTitle: profession.hhSearchTitle[input.locale],
+      firstJobTitle: profession.firstJobTitle[input.locale],
+      searchAliases: profession.searchAliases[input.locale],
     }));
-  }
 
-  async generateCareerInsights(input: CareerAnalysisContext): Promise<string[]> {
     const pool = insightTemplates[input.locale];
     const seedText = [input.profile.personalitySummary, input.profile.strengths.join(" ")].filter(Boolean).join(" ");
     const seed = seedText.length % pool.length;
+    const topMatch = professionCatalog.find((p) => p.interestTags.some((tag) => interests.includes(tag))) ?? professionCatalog[0];
 
-    return Array.from({ length: 4 }, (_, i) => pool[(seed + i) % pool.length]);
+    return {
+      summary: summaryTemplates[input.locale](topMatch.title[input.locale]),
+      insights: Array.from({ length: 4 }, (_, i) => pool[(seed + i) % pool.length]),
+      recommendations,
+    };
   }
 
   async generateRoadmap(input: RoadmapGenerationContext): Promise<RoadmapMilestoneResult[]> {

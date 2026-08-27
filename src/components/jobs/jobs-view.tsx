@@ -7,6 +7,7 @@ import { Search as SearchIcon, ExternalLink, Briefcase } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { isSafeExternalUrl } from "@/lib/security/url-safety";
 import { JobSearchForm } from "./job-search-form";
@@ -22,10 +23,16 @@ import type {
   PrepareResponseData,
 } from "./types";
 
+interface BroaderMarket {
+  nationwideCount: number;
+  remoteCount: number;
+}
+
 interface JobsViewProps {
   initialResults: JobSearchResultItemData[];
   initialHhSearchUrl: string;
   initialProviderName: string;
+  initialBroaderMarket?: BroaderMarket | null;
   initialSavedJobs: SavedJobData[];
   defaultTargetRole: string;
   defaultCity?: string;
@@ -39,6 +46,7 @@ export function JobsView({
   initialResults,
   initialHhSearchUrl,
   initialProviderName,
+  initialBroaderMarket,
   initialSavedJobs,
   defaultTargetRole,
   defaultCity,
@@ -50,6 +58,7 @@ export function JobsView({
   const [results, setResults] = useState(initialResults);
   const [hhSearchUrl, setHhSearchUrl] = useState(initialHhSearchUrl);
   const [providerName, setProviderName] = useState(initialProviderName);
+  const [broaderMarket, setBroaderMarket] = useState(initialBroaderMarket ?? null);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [resultsFetchedAt, setResultsFetchedAt] = useState<Date | null>(initialResults.length > 0 ? new Date() : null);
@@ -68,9 +77,15 @@ export function JobsView({
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const [prepareData, setPrepareData] = useState<PrepareResponseData | null>(null);
 
+  const [lastFilters, setLastFilters] = useState<JobSearchFiltersState>({ targetRole: defaultTargetRole, city: defaultCity, sort: "bestMatch" });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   const runSearch = async (filters: JobSearchFiltersState) => {
     setSearching(true);
     setHasSearched(true);
+    setLastFilters(filters);
+    setHasMore(true);
     try {
       const response = await fetch("/api/jobs/search", {
         method: "POST",
@@ -78,15 +93,52 @@ export function JobsView({
         body: JSON.stringify(filters),
       });
       if (!response.ok) throw new Error("failed");
-      const data = (await response.json()) as { results: JobSearchResultItemData[]; hhSearchUrl: string; providerName: string };
+      const data = (await response.json()) as {
+        results: JobSearchResultItemData[];
+        hhSearchUrl: string;
+        providerName: string;
+        broaderMarket?: BroaderMarket;
+      };
       setResults(data.results);
       setHhSearchUrl(data.hhSearchUrl);
       setProviderName(data.providerName);
+      setBroaderMarket(data.broaderMarket ?? null);
       setResultsFetchedAt(new Date());
     } catch {
       toast.error(page.results.errorSearch);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const searchNationwide = () => runSearch({ ...lastFilters, city: undefined });
+  const searchRemote = () => runSearch({ ...lastFilters, city: undefined, workFormat: "REMOTE" });
+
+  /** "Показать ещё вакансии" — fetches the next page and appends, never re-fetches or discards what's already shown. */
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const nextPage = Math.ceil(results.length / 20);
+      const response = await fetch("/api/jobs/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...lastFilters, page: nextPage }),
+      });
+      if (!response.ok) throw new Error("failed");
+      const data = (await response.json()) as { results: JobSearchResultItemData[] };
+      if (data.results.length === 0) {
+        setHasMore(false);
+        toast(page.results.noMoreResults);
+        return;
+      }
+      const existingUrls = new Set(results.map((r) => r.vacancy.sourceUrl));
+      const fresh = data.results.filter((r) => !existingUrls.has(r.vacancy.sourceUrl));
+      if (fresh.length === 0) setHasMore(false);
+      setResults((prev) => [...prev, ...fresh]);
+    } catch {
+      toast.error(page.results.errorSearch);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -228,12 +280,34 @@ export function JobsView({
             hasSearched ? (
               <div className="space-y-3">
                 <EmptyState icon={SearchIcon} title={page.results.emptyTitle} description={page.results.emptyDescription} />
-                <ul className="text-muted-foreground list-disc space-y-1 pl-6 text-sm">
-                  <li>{page.results.suggestions.changeCity}</li>
-                  <li>{page.results.suggestions.removeSalary}</li>
-                  <li>{page.results.suggestions.tryAnotherRole}</li>
-                  <li>{page.results.suggestions.tryRemote}</li>
-                </ul>
+                {broaderMarket && (broaderMarket.nationwideCount > 0 || broaderMarket.remoteCount > 0) ? (
+                  <div className="bg-secondary/50 space-y-2 rounded-lg p-3 text-sm">
+                    <p>
+                      {page.results.broaderMarketTemplate
+                        .replace("{nationwide}", String(broaderMarket.nationwideCount))
+                        .replace("{remote}", String(broaderMarket.remoteCount))}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {broaderMarket.nationwideCount > 0 && (
+                        <Button size="sm" variant="outline" onClick={searchNationwide}>
+                          {page.results.searchNationwideCta.replace("{count}", String(broaderMarket.nationwideCount))}
+                        </Button>
+                      )}
+                      {broaderMarket.remoteCount > 0 && (
+                        <Button size="sm" variant="outline" onClick={searchRemote}>
+                          {page.results.searchRemoteCta.replace("{count}", String(broaderMarket.remoteCount))}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="text-muted-foreground list-disc space-y-1 pl-6 text-sm">
+                    <li>{page.results.suggestions.changeCity}</li>
+                    <li>{page.results.suggestions.removeSalary}</li>
+                    <li>{page.results.suggestions.tryAnotherRole}</li>
+                    <li>{page.results.suggestions.tryRemote}</li>
+                  </ul>
+                )}
               </div>
             ) : (
               <EmptyState icon={SearchIcon} title={page.results.emptyTitle} description={page.results.emptyDescription} />
@@ -265,6 +339,13 @@ export function JobsView({
                   </motion.div>
                 ))}
               </div>
+              {hasMore && (
+                <div className="flex justify-center pt-1">
+                  <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? page.results.loadingMore : page.results.loadMoreCta}
+                  </Button>
+                </div>
+              )}
             </>
           )}
 

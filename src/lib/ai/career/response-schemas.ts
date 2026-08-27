@@ -15,14 +15,30 @@ function nullableOptional<T extends z.ZodTypeAny>(schema: T) {
   return schema.nullish().transform((v) => v ?? undefined);
 }
 
+/**
+ * Truncates instead of rejecting — a real model running a few characters
+ * past a "1-2 sentences" instruction shouldn't fail `completeJson`'s
+ * validation (no retry/repair pass exists), the same reasoning
+ * `resumeReviewResponseSchema` already documents for array cardinality,
+ * extended here to string length.
+ */
+function boundedText(max: number) {
+  return z.string().transform((v) => (v.length > max ? `${v.slice(0, max - 1).trimEnd()}…` : v));
+}
+
+// Each trait defaults rather than rejects when a real model omits one field
+// out of seven — observed live against a local Ollama model: an otherwise
+// valid response missing just `learningSpeed` used to fail the whole
+// `analyzeUser` call and burn a retry for no good reason.
+const dnaTrait = z.number().default(65);
 const dnaSchema = z.object({
-  leadership: z.number(),
-  communication: z.number(),
-  analyticalThinking: z.number(),
-  creativity: z.number(),
-  responsibility: z.number(),
-  problemSolving: z.number(),
-  learningSpeed: z.number(),
+  leadership: dnaTrait,
+  communication: dnaTrait,
+  analyticalThinking: dnaTrait,
+  creativity: dnaTrait,
+  responsibility: dnaTrait,
+  problemSolving: dnaTrait,
+  learningSpeed: dnaTrait,
 });
 
 export const analyzeUserResponseSchema = z.object({
@@ -30,28 +46,34 @@ export const analyzeUserResponseSchema = z.object({
   dna: dnaSchema,
 });
 
-// Wrapped in an object, not a bare top-level array — JSON-mode on every real
-// provider (OpenAI's `json_object`, Ollama's `format: "json"`) only
-// guarantees a JSON *object* comes back, never a bare array; asking for a
-// top-level array either gets ignored or silently collapsed to one item.
-// See `careerInsightsResponseSchema` just below for the same established
-// pattern already used elsewhere in this file.
-export const careerRecommendationsResponseSchema = z.object({
-  recommendations: z.array(
-    z.object({
-      title: z.string(),
-      matchScore: z.number(),
-      reasoning: z.string(),
-      requiredSkills: z.array(z.string()),
-      learningTimeMonths: z.number(),
-      growthPotential: z.enum(["LOW", "MEDIUM", "HIGH"]),
-      difficultyLevel: z.enum(["EASY", "MEDIUM", "HARD"]),
-    })
-  ),
+const careerRecommendationSchema = z.object({
+  title: boundedText(80),
+  matchScore: z.number(),
+  reasoning: boundedText(280),
+  requiredSkills: z.array(z.string()),
+  learningTimeMonths: z.number(),
+  growthPotential: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  difficultyLevel: z.enum(["EASY", "MEDIUM", "HARD"]),
+  // Market-realism fields — `career-market.service.ts` validates these
+  // against real hh.ru search results before the recommendation is
+  // shown as having genuine market demand.
+  hhSearchTitle: nullableOptional(boundedText(80)),
+  firstJobTitle: nullableOptional(boundedText(80)),
+  searchAliases: nullableOptional(z.array(boundedText(80))),
 });
 
-export const careerInsightsResponseSchema = z.object({
-  insights: z.array(z.string()),
+/**
+ * One combined generation instead of two separate Ollama round trips
+ * (recommendations + insights used to be independent prompts/calls) — see
+ * item 21 of the performance brief. Wrapped in an object, not a bare
+ * top-level array/mixed shape — JSON-mode on every real provider (OpenAI's
+ * `json_object`, Ollama's `format: "json"`) only guarantees a JSON *object*
+ * comes back.
+ */
+export const careerAnalysisResponseSchema = z.object({
+  summary: boundedText(320),
+  insights: z.array(boundedText(200)),
+  recommendations: z.array(careerRecommendationSchema),
 });
 
 const roadmapResourceSchema = z.object({
@@ -71,10 +93,10 @@ const roadmapTaskSchema = z.object({
 export const roadmapResponseSchema = z.object({
   milestones: z.array(
     z.object({
-      title: z.string(),
-      description: z.string(),
-      whyItMatters: z.string(),
-      expectedResult: z.string(),
+      title: boundedText(100),
+      description: boundedText(280),
+      whyItMatters: boundedText(200),
+      expectedResult: boundedText(200),
       estimatedWeeks: z.number(),
       skills: z.array(z.string()).default([]),
       tasks: z.array(roadmapTaskSchema).min(1),
@@ -103,8 +125,8 @@ export const resumeReviewResponseSchema = z.object({
   strengths: z.array(z.string()).default([]),
   improvements: z.array(z.string()).default([]),
   missing: z.array(z.string()).default([]),
-  fitNote: z.string(),
-  nextStep: z.string(),
+  fitNote: boundedText(280),
+  nextStep: boundedText(200),
 });
 
 const interviewQuestionTypeSchema = z.enum(["GENERAL", "TECHNICAL", "BEHAVIORAL", "HR", "RESUME_BASED"]);
@@ -128,10 +150,10 @@ const interviewScoreBreakdownSchema = z.object({
 export const interviewAnswerEvaluationResponseSchema = z.object({
   scoreBreakdown: interviewScoreBreakdownSchema,
   score: z.number(),
-  feedback: z.string(),
-  strengths: z.string(),
-  improvements: z.string(),
-  idealAnswerNotes: z.string(),
+  feedback: boundedText(220),
+  strengths: boundedText(280),
+  improvements: boundedText(280),
+  idealAnswerNotes: boundedText(280),
   followUpQuestion: z.string().nullable().default(null),
 });
 
@@ -144,7 +166,7 @@ export const interviewReportResponseSchema = z.object({
     problemSolving: z.number(),
     confidence: z.number(),
   }),
-  overallResult: z.string(),
+  overallResult: boundedText(280),
   strongestAreas: z.array(z.string()).default([]),
   areasToImprove: z.array(z.string()).default([]),
   nextSteps: z.array(z.string()).default([]),
@@ -162,7 +184,7 @@ export const jobSearchAssistantResponseSchema = z.object({
 
 export const coachMetaResponseSchema = z.object({
   intent: z.enum(["jobs", "resume", "interview", "skillGap", "roadmap", "compareCareers", "nextAction", "applications", "general"]),
-  memoryFact: z.string().max(200).nullable().default(null),
+  memoryFact: boundedText(200).nullable().default(null),
 });
 
 export const jobPreparationResponseSchema = z.object({
@@ -174,12 +196,12 @@ export const jobPreparationResponseSchema = z.object({
 });
 
 const careerMissionSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  goal: z.string(),
+  title: boundedText(100),
+  description: boundedText(200),
+  goal: boundedText(200),
   instructions: z.array(z.string()).default([]),
-  whyItMatters: z.string(),
-  expectedResult: z.string(),
+  whyItMatters: boundedText(200),
+  expectedResult: boundedText(200),
   estimatedMinutes: z.number(),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
   skill: z.string().nullable().default(null),
@@ -190,5 +212,5 @@ const careerMissionSchema = z.object({
 
 export const careerMissionsResponseSchema = z.object({
   missions: z.array(careerMissionSchema).min(1),
-  insight: z.string(),
+  insight: boundedText(200),
 });

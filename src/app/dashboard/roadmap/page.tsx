@@ -21,6 +21,7 @@ export default async function RoadmapPage() {
       initialRoadmap={roadmap as RoadmapData | null}
       careerScore={scoreSnapshot.score}
       suggestedCareerTitle={recommendations[0]?.title ?? null}
+      recommendedCareers={recommendations.map((rec) => rec.title)}
     />
   );
 }

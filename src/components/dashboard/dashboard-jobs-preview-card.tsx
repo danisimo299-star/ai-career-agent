@@ -35,9 +35,12 @@ export function DashboardJobsPreviewCard({ jobs }: DashboardJobsPreviewCardProps
   return (
     <Card className="h-full">
       <CardContent className="flex h-full flex-col gap-3 py-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <WidgetHeader icon={Briefcase} title={j.title} />
-          <Link href="/dashboard/jobs" className="text-muted-foreground hover:text-foreground text-xs font-medium">
+          <Link
+            href="/dashboard/jobs"
+            className="text-muted-foreground hover:text-foreground shrink-0 text-xs font-medium whitespace-nowrap"
+          >
             {j.viewAllCta}
           </Link>
         </div>

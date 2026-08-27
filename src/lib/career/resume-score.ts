@@ -7,6 +7,7 @@ export const resumeRecommendationKeys = [
   "addSummary",
   "addExperienceOrProjects",
   "addEducation",
+  "addExperienceBullets",
   "addMeasurableResults",
   "addMoreSkills",
   "addKeywords",
@@ -46,11 +47,17 @@ function allBullets(content: ResumeContent): string[] {
  * actionable checks, not an LLM's opaque judgment call.
  */
 export function computeResumeScore(content: ResumeContent, targetRole: string, locale: Locale): ResumeScoreResult {
-  const bullets = allBullets(content);
+  const bullets = allBullets(content).filter((b) => b.trim().length > 0);
   const hasPersonalInfo = Boolean(content.personalInfo.fullName?.trim()) && Boolean(content.personalInfo.email?.trim());
   const hasSummary = content.summary.trim().length >= 40;
   const hasExperienceOrProjects = content.experience.length > 0 || content.projects.length > 0;
   const hasEducation = content.education.length > 0;
+  // A job entry with a title and dates but zero achievement bullets is the
+  // single most common way a self-assembled resume reads as unfinished —
+  // see the sample resume that shipped with just "Грузчик — Ozon" and no
+  // description at all. Tracked separately from `addMeasurableResults`,
+  // which only fires once bullets already exist.
+  const hasExperienceWithoutBullets = content.experience.some((e) => e.bullets.filter((b) => b.trim().length > 0).length === 0);
 
   const structure = clamp(
     (hasPersonalInfo ? 30 : 0) + (hasSummary ? 25 : 0) + (hasExperienceOrProjects ? 25 : 0) + (hasEducation ? 20 : 0)
@@ -59,7 +66,8 @@ export function computeResumeScore(content: ResumeContent, targetRole: string, l
   const skills = clamp((content.skills.length / 6) * 100);
 
   const measurableBullets = bullets.filter((b) => /\d/.test(b)).length;
-  const achievements = bullets.length === 0 ? 40 : clamp((measurableBullets / bullets.length) * 100);
+  const achievements =
+    bullets.length === 0 ? (content.experience.length > 0 ? 15 : 40) : clamp((measurableBullets / bullets.length) * 100);
 
   const profession = findProfessionByTitle(targetRole, locale);
   let keywords = 70;
@@ -84,6 +92,7 @@ export function computeResumeScore(content: ResumeContent, targetRole: string, l
   if (!hasSummary) recommendations.push("addSummary");
   if (!hasExperienceOrProjects) recommendations.push("addExperienceOrProjects");
   if (!hasEducation) recommendations.push("addEducation");
+  if (hasExperienceWithoutBullets) recommendations.push("addExperienceBullets");
   if (bullets.length > 0 && measurableBullets / bullets.length < 0.3) recommendations.push("addMeasurableResults");
   if (content.skills.length < 5) recommendations.push("addMoreSkills");
   if (profession && keywords < 50) recommendations.push("addKeywords");

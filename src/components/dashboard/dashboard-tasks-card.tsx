@@ -28,9 +28,12 @@ export function DashboardTasksCard({ tasks }: DashboardTasksCardProps) {
   return (
     <Card className="h-full">
       <CardContent className="flex h-full flex-col gap-3 py-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <WidgetHeader icon={ListChecks} title={t.title} />
-          <Link href="/dashboard/missions" className="text-muted-foreground hover:text-foreground text-xs font-medium">
+          <Link
+            href="/dashboard/missions"
+            className="text-muted-foreground hover:text-foreground shrink-0 text-xs font-medium whitespace-nowrap"
+          >
             {t.viewAllCta}
           </Link>
         </div>

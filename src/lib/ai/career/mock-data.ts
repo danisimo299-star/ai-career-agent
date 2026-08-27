@@ -11,6 +11,12 @@ interface ProfessionTemplate {
   learningTimeMonths: number;
   growthPotential: "LOW" | "MEDIUM" | "HIGH";
   difficultyLevel: "EASY" | "MEDIUM" | "HARD";
+  /** Short, real search string a job board would actually match — usually `title` itself, kept separate so mock data exercises the same field real AI output uses. */
+  hhSearchTitle: Record<Locale, string>;
+  /** Realistic entry-level title for someone starting out, distinct from the (possibly senior-implying) `title`. */
+  firstJobTitle: Record<Locale, string>;
+  /** Real alternate titles the same role is also posted under. */
+  searchAliases: Record<Locale, string[]>;
 }
 
 export const professionCatalog: ProfessionTemplate[] = [
@@ -27,6 +33,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 8,
     growthPotential: "HIGH",
     difficultyLevel: "MEDIUM",
+    hhSearchTitle: { en: "Backend Developer", ru: "Backend-разработчик" },
+    firstJobTitle: { en: "Junior Backend Developer", ru: "Junior Backend-разработчик" },
+    searchAliases: {
+      en: ["Python Developer", "Server-side Developer", "Backend Engineer"],
+      ru: ["Python-разработчик", "Программист Python", "Backend Engineer"],
+    },
   },
   {
     key: "frontend-developer",
@@ -41,6 +53,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 6,
     growthPotential: "HIGH",
     difficultyLevel: "MEDIUM",
+    hhSearchTitle: { en: "Frontend Developer", ru: "Frontend-разработчик" },
+    firstJobTitle: { en: "Junior Frontend Developer", ru: "Junior Frontend-разработчик" },
+    searchAliases: {
+      en: ["Web Developer", "JavaScript Developer", "React Developer"],
+      ru: ["Веб-разработчик", "JavaScript-разработчик", "React-разработчик"],
+    },
   },
   {
     key: "ai-engineer",
@@ -58,6 +76,15 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 10,
     growthPotential: "HIGH",
     difficultyLevel: "HARD",
+    // A real AI Engineer role is senior-leaning by market convention — the
+    // realistic entry point is a Python/Data Analyst role, not "Junior AI
+    // Engineer" (which barely exists as a real posted title).
+    hhSearchTitle: { en: "Machine Learning Engineer", ru: "Инженер машинного обучения" },
+    firstJobTitle: { en: "Junior Data Analyst", ru: "Junior аналитик данных" },
+    searchAliases: {
+      en: ["ML Engineer", "Python Developer", "Data Scientist"],
+      ru: ["ML-инженер", "Python-разработчик", "Data Scientist"],
+    },
   },
   {
     key: "ux-ui-designer",
@@ -72,6 +99,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 6,
     growthPotential: "MEDIUM",
     difficultyLevel: "EASY",
+    hhSearchTitle: { en: "UX/UI Designer", ru: "UX/UI-дизайнер" },
+    firstJobTitle: { en: "Junior UX/UI Designer", ru: "Junior UX/UI-дизайнер" },
+    searchAliases: {
+      en: ["Product Designer", "Web Designer", "UI Designer"],
+      ru: ["Продуктовый дизайнер", "Веб-дизайнер", "UI-дизайнер"],
+    },
   },
   {
     key: "product-manager",
@@ -86,6 +119,14 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 9,
     growthPotential: "HIGH",
     difficultyLevel: "HARD",
+    // Product Manager roles are rarely truly entry-level in the real market —
+    // Product Analyst/Junior PM is the honest first step.
+    hhSearchTitle: { en: "Product Manager", ru: "Продакт-менеджер" },
+    firstJobTitle: { en: "Junior Product Analyst", ru: "Junior продуктовый аналитик" },
+    searchAliases: {
+      en: ["Product Owner", "Product Analyst", "Associate Product Manager"],
+      ru: ["Продакт-оунер", "Продуктовый аналитик", "Junior Product Manager"],
+    },
   },
   {
     key: "marketing-specialist",
@@ -100,6 +141,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 5,
     growthPotential: "MEDIUM",
     difficultyLevel: "EASY",
+    hhSearchTitle: { en: "Marketing Specialist", ru: "Маркетолог" },
+    firstJobTitle: { en: "Marketing Assistant", ru: "Ассистент маркетолога" },
+    searchAliases: {
+      en: ["Digital Marketer", "SMM Specialist", "Marketing Manager"],
+      ru: ["Интернет-маркетолог", "SMM-специалист", "Маркетинг-менеджер"],
+    },
   },
   {
     key: "financial-analyst",
@@ -114,6 +161,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 7,
     growthPotential: "MEDIUM",
     difficultyLevel: "MEDIUM",
+    hhSearchTitle: { en: "Financial Analyst", ru: "Финансовый аналитик" },
+    firstJobTitle: { en: "Junior Financial Analyst", ru: "Junior финансовый аналитик" },
+    searchAliases: {
+      en: ["Finance Specialist", "Budget Analyst", "Financial Controller"],
+      ru: ["Экономист", "Специалист по бюджетированию", "Финансист"],
+    },
   },
   {
     key: "data-analyst",
@@ -128,6 +181,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 6,
     growthPotential: "HIGH",
     difficultyLevel: "MEDIUM",
+    hhSearchTitle: { en: "Data Analyst", ru: "Аналитик данных" },
+    firstJobTitle: { en: "Junior Data Analyst", ru: "Junior аналитик данных" },
+    searchAliases: {
+      en: ["Business Analyst", "BI Analyst", "Data Specialist"],
+      ru: ["Бизнес-аналитик", "BI-аналитик", "Специалист по данным"],
+    },
   },
   {
     key: "systems-engineer",
@@ -142,6 +201,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 9,
     growthPotential: "MEDIUM",
     difficultyLevel: "HARD",
+    hhSearchTitle: { en: "Systems Engineer", ru: "Системный инженер" },
+    firstJobTitle: { en: "Junior System Administrator", ru: "Junior системный администратор" },
+    searchAliases: {
+      en: ["System Administrator", "DevOps Engineer", "Infrastructure Engineer"],
+      ru: ["Системный администратор", "DevOps-инженер", "Инженер инфраструктуры"],
+    },
   },
   {
     key: "legal-analyst",
@@ -156,6 +221,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 12,
     growthPotential: "LOW",
     difficultyLevel: "HARD",
+    hhSearchTitle: { en: "Legal Counsel", ru: "Юрист" },
+    firstJobTitle: { en: "Junior Legal Counsel", ru: "Юрист-стажёр" },
+    searchAliases: {
+      en: ["Paralegal", "Compliance Specialist", "Legal Assistant"],
+      ru: ["Помощник юриста", "Специалист по комплаенсу", "Юридический ассистент"],
+    },
   },
   {
     key: "health-data-coordinator",
@@ -170,6 +241,14 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 6,
     growthPotential: "MEDIUM",
     difficultyLevel: "EASY",
+    // "Health Data Coordinator" barely exists as a Russian job-board title —
+    // the real, searchable equivalent is a medical registrar/records role.
+    hhSearchTitle: { en: "Medical Records Specialist", ru: "Медицинский регистратор" },
+    firstJobTitle: { en: "Medical Records Specialist", ru: "Медицинский регистратор" },
+    searchAliases: {
+      en: ["Health Information Technician", "Medical Administrator"],
+      ru: ["Оператор медицинских данных", "Администратор медицинского учреждения"],
+    },
   },
   {
     key: "instructional-designer",
@@ -184,6 +263,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 5,
     growthPotential: "MEDIUM",
     difficultyLevel: "EASY",
+    hhSearchTitle: { en: "Instructional Designer", ru: "Методист" },
+    firstJobTitle: { en: "Junior Methodologist", ru: "Junior методист" },
+    searchAliases: {
+      en: ["Curriculum Developer", "E-learning Specialist", "Learning Designer"],
+      ru: ["Разработчик образовательных программ", "Специалист по электронному обучению"],
+    },
   },
   {
     key: "project-coordinator",
@@ -198,6 +283,12 @@ export const professionCatalog: ProfessionTemplate[] = [
     learningTimeMonths: 4,
     growthPotential: "MEDIUM",
     difficultyLevel: "EASY",
+    hhSearchTitle: { en: "Project Coordinator", ru: "Координатор проектов" },
+    firstJobTitle: { en: "Project Assistant", ru: "Ассистент проекта" },
+    searchAliases: {
+      en: ["Project Administrator", "Junior Project Manager", "Office Coordinator"],
+      ru: ["Ассистент руководителя проекта", "Junior проект-менеджер", "Офис-координатор"],
+    },
   },
 ];
 
@@ -232,4 +323,11 @@ export const insightTemplates: Record<Locale, string[]> = {
     "Тебя больше привлекает творческое решение задач, чем рутинные операции.",
     "Похоже, тебе комфортно брать инициативу на себя, а не ждать указаний.",
   ],
+};
+
+export const summaryTemplates: Record<Locale, (topTitle: string) => string> = {
+  en: (topTitle) =>
+    `Your profile points most strongly toward ${topTitle} — it fits your interests and existing strengths well. A few other directions are also worth a look below, each with a realistic first step.`,
+  ru: (topTitle) =>
+    `Твой профиль сильнее всего указывает на направление «${topTitle}» — оно хорошо сочетается с твоими интересами и сильными сторонами. Ниже есть ещё несколько направлений, у каждого — реалистичный первый шаг.`,
 };

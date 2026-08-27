@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, TrendingUp, Gauge, Briefcase, Sparkles } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Clock, TrendingUp, Gauge, Briefcase, Sparkles, ChevronDown, ChevronUp, Rocket } from "lucide-react";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +19,34 @@ export interface RecommendationData {
   learningTimeMonths: number;
   growthPotential: "LOW" | "MEDIUM" | "HIGH";
   difficultyLevel: "EASY" | "MEDIUM" | "HARD";
+  hhSearchTitle?: string | null;
+  firstJobTitle?: string | null;
+  marketDemand?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  vacancyCountCity?: number | null;
+  vacancyCountRussia?: number | null;
+  marketCheckedCity?: string | null;
+  hhProfessionalRoleId?: number | null;
+  hhAreaId?: number | null;
 }
+
+const DEMAND_BADGE_VARIANT: Record<NonNullable<RecommendationData["marketDemand"]>, "success" | "warning" | "outline" | "secondary"> = {
+  HIGH: "success",
+  MEDIUM: "warning",
+  LOW: "outline",
+  UNKNOWN: "secondary",
+};
 
 export function RecommendationCard({ recommendation, rank }: { recommendation: RecommendationData; rank: number }) {
   const { dict } = useLocale();
   const page = dict.dashboard.careerAnalysisPage;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const searchRole = recommendation.hhSearchTitle || recommendation.title;
+  const jobsHref = new URLSearchParams({ role: searchRole });
+  if (recommendation.hhProfessionalRoleId) jobsHref.set("roleId", String(recommendation.hhProfessionalRoleId));
+  if (recommendation.hhAreaId) jobsHref.set("areaId", String(recommendation.hhAreaId));
+  const demand = recommendation.marketDemand ?? "UNKNOWN";
+  const hasFirstJob = recommendation.firstJobTitle && recommendation.firstJobTitle !== recommendation.title;
 
   return (
     <Card>
@@ -42,15 +67,54 @@ export function RecommendationCard({ recommendation, rank }: { recommendation: R
         </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-muted-foreground text-sm">{recommendation.reasoning}</p>
+        <p className="text-muted-foreground max-w-prose text-[15px] leading-relaxed">{recommendation.reasoning}</p>
 
-        <div className="flex flex-wrap gap-1.5">
-          {recommendation.requiredSkills.map((skill) => (
-            <Badge key={skill} variant="secondary">
-              {skill}
-            </Badge>
-          ))}
-        </div>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Badge variant={DEMAND_BADGE_VARIANT[demand]} className="cursor-default">
+                {page.marketDemand[demand]}
+              </Badge>
+            }
+          />
+          <TooltipContent>
+            {demand === "UNKNOWN"
+              ? page.marketDemandTooltip.unknown
+              : page.marketDemandTooltip.counts
+                  .replace("{city}", recommendation.marketCheckedCity ?? "—")
+                  .replace("{cityCount}", String(recommendation.vacancyCountCity ?? 0))
+                  .replace("{russiaCount}", String(recommendation.vacancyCountRussia ?? 0))}
+          </TooltipContent>
+        </Tooltip>
+
+        {hasFirstJob && (
+          <p className="flex items-start gap-1.5 text-sm">
+            <Rocket className="text-primary mt-0.5 size-3.5 shrink-0" />
+            <span>
+              <span className="text-muted-foreground">{page.firstJobLabel}: </span>
+              <span className="font-medium">{recommendation.firstJobTitle}</span>
+            </span>
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className="text-muted-foreground flex items-center gap-1 text-xs hover:underline"
+        >
+          {detailsOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          {detailsOpen ? page.hideDetails : page.showDetails}
+        </button>
+
+        {detailsOpen && (
+          <div className="flex flex-wrap gap-1.5">
+            {recommendation.requiredSkills.map((skill) => (
+              <Badge key={skill} variant="secondary">
+                {skill}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         <div className="text-muted-foreground grid grid-cols-3 gap-2 border-t pt-3 text-xs">
           <div className="flex items-center gap-1.5">
@@ -74,7 +138,7 @@ export function RecommendationCard({ recommendation, rank }: { recommendation: R
             className="flex-1"
             nativeButton={false}
             render={
-              <Link href={`/dashboard/jobs?role=${encodeURIComponent(recommendation.title)}`}>
+              <Link href={`/dashboard/jobs?${jobsHref.toString()}`}>
                 <Briefcase />
                 {page.findJobsCta}
               </Link>

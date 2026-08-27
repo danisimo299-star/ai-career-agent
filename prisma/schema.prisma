@@ -27,6 +27,7 @@ model User {
 
   profile             Profile?
   chatMessages        ChatMessage[]
+  interviewAttempts   InterviewAttempt[]
   careerRecommendations CareerRecommendation[]
   roadmap             Roadmap?
   resumes             Resume[]
@@ -137,13 +138,37 @@ model Profile {
   careerDna           Json? // CareerDnaScores — 7 traits, 0-100 each
   careerScore         Int?
   careerInsights      String[] @default([])
+  // 2-3 sentence "quick take" shown above the insights list — see
+  // `generateCareerInsights`'s `summary` field and `InsightsCard`.
+  careerSummary       String?  @db.Text
+  // Persisted so a page refresh mid-generation (or a request that outlives
+  // the browser tab) is always safe to render from — see item 29 of the
+  // performance brief: `PROCESSING` on load means "poll, don't re-trigger",
+  // `COMPLETED`/`FAILED` render immediately without depending on the
+  // original fetch ever reaching this tab.
+  careerAnalysisStatus     GenerationStatus @default(IDLE)
+  careerAnalysisError      String?          @db.Text
+  careerAnalysisStartedAt  DateTime?
   interviewTopicsCovered String[] @default([])
   // Fixed-key priority taxonomy from the Questionnaire's "priorities" question (salary/stability/growth/...) — see lib/ai/career/questionnaire.ts
   careerPriorities    String[] @default([])
   // Set once `pickNextQuestionId` (lib/ai/career/questionnaire.ts) returns null — the Questionnaire's variable-length step count makes a length threshold unreliable, so completeness is stored explicitly instead of re-derived.
   questionnaireCompleted Boolean @default(false)
+  /// Optimistic-concurrency counter — incremented on every successful
+  /// `chatService.sendMessage` write. A stale write (whoever read this value
+  /// first but lost the race) is detected via `updateMany({ where: {
+  /// interviewVersion: expectedValue } })` matching 0 rows, and the whole
+  /// transaction (including that turn's chat messages) rolls back rather
+  /// than silently overwriting a concurrent answer — see item 4 of the
+  /// interview-reliability brief.
+  interviewVersion Int @default(0)
 
   onboardingCompleted Boolean @default(false)
+  // Set when the post-onboarding Welcome + product tour has been shown once.
+  // Separate from `onboardingCompleted` (the Career Interview basics) on
+  // purpose — Settings' "Replay tour" re-shows the tour without touching
+  // this flag permanently, see `dashboard-tour.tsx`.
+  tourCompleted Boolean @default(false)
 
   // Real Settings-page preferences — read by coach.service.ts on every Coach
   // turn, not decorative. `aiUseProfileContext=false` sends the Coach a
@@ -162,6 +187,13 @@ model Profile {
   @@map("profiles")
 }
 
+enum GenerationStatus {
+  IDLE
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum AiReplyStyle {
   BRIEF
   BALANCED
@@ -178,6 +210,38 @@ enum ChatRole {
   SYSTEM
 }
 
+/// One Career Interview playthrough. Messages, and the Career Profile/
+/// Analysis/Recommendations built from them, all belong to exactly one
+/// attempt — "Пройти интервью заново" creates a new one rather than mutating
+/// the old one in place, so two playthroughs' answers can never mix and the
+/// old completed result survives as history (see `restartInterview` in
+/// `chat.service.ts`).
+enum InterviewAttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+model InterviewAttempt {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status      InterviewAttemptStatus @default(IN_PROGRESS)
+  startedAt   DateTime               @default(now())
+  completedAt DateTime?
+  /// Denormalized snapshot for the simple "previous results" history list —
+  /// set once Career Analysis finishes for this attempt, never recomputed
+  /// retroactively (matches the same "snapshot of what was actually shown"
+  /// pattern already used by `CoachMessage.suggestedActions`).
+  topCareerTitle String?
+
+  messages ChatMessage[]
+
+  @@index([userId, startedAt])
+  @@map("interview_attempts")
+}
+
 model ChatMessage {
   id     String @id @default(cuid())
   userId String
@@ -188,9 +252,15 @@ model ChatMessage {
   // The pending structured question this ASSISTANT turn is asking, if any (see QuestionSpec in lib/ai/career/types.ts) — lets the Questionnaire UI re-render the same interactive widget after a page reload instead of falling back to plain text.
   questionSpec Json?
 
+  /// Nullable only for rows written before this model existed — every new
+  /// message always belongs to an attempt (see `getOrCreateActiveAttempt`).
+  attemptId String?
+  attempt   InterviewAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([attemptId, createdAt])
   @@map("chat_messages")
 }
 
@@ -210,6 +280,17 @@ enum DifficultyLevel {
   HARD
 }
 
+/// How much real hh.ru vacancy demand `career-market.service.ts` found for
+/// this recommendation's canonical/alias titles — UNKNOWN means the check
+/// itself couldn't run (no provider credentials, network error), never
+/// "confirmed no demand"; see item 36 of the market-reality brief.
+enum MarketDemand {
+  HIGH
+  MEDIUM
+  LOW
+  UNKNOWN
+}
+
 model CareerRecommendation {
   id     String @id @default(cuid())
   userId String
@@ -222,6 +303,38 @@ model CareerRecommendation {
   learningTimeMonths Int             @default(6)
   growthPotential    GrowthPotential @default(MEDIUM)
   difficultyLevel    DifficultyLevel @default(MEDIUM)
+
+  /// The search-friendly, real-job-market version of `title` — what actually
+  /// gets sent to hh.ru instead of a possibly AI-invented display title.
+  hhSearchTitle String?
+  /// A realistic entry-level title someone at the user's current skill level
+  /// could actually apply for today, distinct from `title` (the longer-term
+  /// career goal) — see the "Target Career vs First Job" split.
+  firstJobTitle String?
+  /// Alternate real job titles for the same role (e.g. "Frontend Developer" /
+  /// "Frontend-разработчик" / "JavaScript Developer") tried by the market
+  /// validator before giving up on a query — never a fabricated synonym.
+  searchAliases String[] @default([])
+
+  /// HH's own closed professional-role category this recommendation resolved
+  /// to (see `hh-professional-roles.ts`) — null means it never resolved to a
+  /// real HH category and must not be shown as a validated primary
+  /// recommendation (item 4 of the market-reality brief).
+  hhProfessionalRoleId Int?
+  hhRoleName           String?
+  /// The HH area id the market check actually ran against (from the live
+  /// area resolver) — kept alongside `marketCheckedCity` so Jobs can reopen
+  /// the exact same area without re-resolving the city name.
+  hhAreaId             Int?
+  marketDemand       MarketDemand @default(UNKNOWN)
+  /// Whichever of title/hhSearchTitle/searchAliases/firstJobTitle actually
+  /// returned vacancies — shown to the user so a demand label is never
+  /// silently about a different title than the one displayed.
+  marketMatchedQuery String?
+  vacancyCountCity    Int?
+  vacancyCountRussia  Int?
+  marketCheckedCity   String?
+  marketCheckedAt     DateTime?
 
   roadmap Roadmap?
 

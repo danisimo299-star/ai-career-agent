@@ -7,6 +7,7 @@ import { TypingIndicator } from "@/components/shared/typing-indicator";
 import { ProgressHeader } from "./progress-header";
 import { QuestionWidget, type QuestionAnswer } from "./question-widget";
 import { CompletionScreen } from "./completion-screen";
+import { RestartInterviewButton } from "./restart-interview-button";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -112,7 +113,12 @@ export function QuestionnaireWindow({
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 pt-4 pb-3 sm:px-6">
-        <PageHeader title={dict.questionnaire.title} description={dict.questionnaire.subtitle} icon={ClipboardList} />
+        <PageHeader
+          title={dict.questionnaire.title}
+          description={dict.questionnaire.subtitle}
+          icon={ClipboardList}
+          action={isComplete ? <RestartInterviewButton /> : undefined}
+        />
       </div>
       <ProgressHeader percent={progress} step={step} totalSteps={totalSteps} />
 

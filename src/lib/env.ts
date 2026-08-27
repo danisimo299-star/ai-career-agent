@@ -23,6 +23,10 @@ const envSchema = z.object({
   /// vacancies: it returns no live results and the caller falls back to a
   /// real, correctly-parameterized HH.ru search link instead.
   HH_ACCESS_TOKEN: z.string().optional(),
+  /// Minimum confirmed HH.ru vacancies in the user's city for a recommendation
+  /// to count as a normal (non-"limited market") primary suggestion — see
+  /// `career-market.service.ts`. Below this it's still shown, just flagged.
+  MIN_CITY_VACANCIES_FOR_PRIMARY_CAREER: z.coerce.number().int().positive().default(3),
 });
 
 export type Env = z.infer<typeof envSchema>;

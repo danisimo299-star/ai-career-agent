@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Compass, Sparkles, RotateCw } from "lucide-react";
+import { Compass, Sparkles, RotateCw, AlertCircle, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,34 @@ import { RecommendationCard, type RecommendationData } from "./recommendation-ca
 import { InsightsCard } from "./insights-card";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
+type GenerationStatus = "IDLE" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+interface AnalysisResult {
+  recommendations: Omit<RecommendationData, "id">[];
+  insights: string[];
+  summary: string;
+}
+
 interface CareerAnalysisViewProps {
   initialRecommendations: RecommendationData[];
   initialInsights: string[];
+  initialSummary: string | null;
+  initialStatus: GenerationStatus;
   readyForAnalysis: boolean;
+}
+
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLLS = 40; // ~100s safety net — generous, but bounded (item 6/30: never wait forever)
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function CareerAnalysisView({
   initialRecommendations,
   initialInsights,
+  initialSummary,
+  initialStatus,
   readyForAnalysis,
 }: CareerAnalysisViewProps) {
   const { dict } = useLocale();
@@ -27,28 +46,98 @@ export function CareerAnalysisView({
 
   const [recommendations, setRecommendations] = useState(initialRecommendations);
   const [insights, setInsights] = useState(initialInsights);
-  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState(initialSummary);
+  const [status, setStatus] = useState<GenerationStatus>(initialStatus);
+  const [findingMore, setFindingMore] = useState(false);
+  const loading = status === "PROCESSING";
+
+  const applyResult = (data: AnalysisResult) => {
+    setRecommendations(data.recommendations.map((rec, i) => ({ ...rec, id: `new-${i}` })));
+    setInsights(data.insights);
+    setSummary(data.summary);
+    setStatus("COMPLETED");
+  };
+
+  /**
+   * DB-persisted generation status (item 29) means a refresh — or a POST
+   * whose response never made it back to this tab (network hiccup, a slow
+   * Ollama call outliving the fetch) — is always recoverable: this polls
+   * until the backend actually finishes, instead of leaving the page stuck
+   * on a spinner that only a manual browser refresh used to clear.
+   */
+  const pollUntilDone = async () => {
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await sleep(POLL_INTERVAL_MS);
+      try {
+        const response = await fetch("/api/career-analysis");
+        if (!response.ok) continue;
+        const data = (await response.json()) as AnalysisResult & { status: GenerationStatus };
+        if (data.status === "COMPLETED") {
+          applyResult(data);
+          return;
+        }
+        if (data.status === "FAILED") {
+          setStatus("FAILED");
+          toast.error(dict.auth.register.errors.generic);
+          return;
+        }
+      } catch {
+        // transient — keep polling, the loop's own bound is the real limit
+      }
+    }
+    setStatus("FAILED");
+    toast.error(dict.auth.register.errors.generic);
+  };
+
+  // Only runs once, only when a PREVIOUS generation was still running server-side when this page loaded (e.g. the user refreshed mid-generation) — resumes watching it instead of leaving a dead spinner. Deferred a tick so the poll's eventual `setState` calls are never mistaken for a synchronous effect-body update.
+  useEffect(() => {
+    if (initialStatus !== "PROCESSING") return;
+    const id = requestAnimationFrame(() => {
+      pollUntilDone();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only: re-runs must never re-trigger this from later state changes.
+  }, []);
 
   const generate = async () => {
-    setLoading(true);
+    setStatus("PROCESSING");
     try {
       const response = await fetch("/api/career-analysis", { method: "POST" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({ error: "generic" }));
         toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.auth.register.errors.generic);
+        setStatus("FAILED");
         return;
       }
+      const data = (await response.json()) as AnalysisResult;
+      applyResult(data);
+    } catch {
+      // The fetch itself failed/timed out client-side — the backend may
+      // still be working (status is DB-persisted), so fall back to polling
+      // rather than immediately declaring failure.
+      await pollUntilDone();
+    }
+  };
 
-      const data = (await response.json()) as {
-        recommendations: Omit<RecommendationData, "id">[];
-        insights: string[];
-      };
-      setRecommendations(data.recommendations.map((rec, i) => ({ ...rec, id: `new-${i}` })));
-      setInsights(data.insights);
+  /** "Показать ещё варианты" — adds a few more validated professions without discarding what's already shown (unlike Regenerate, which replaces everything). */
+  const findMore = async () => {
+    setFindingMore(true);
+    try {
+      const response = await fetch("/api/career-analysis/more", { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "generic" }));
+        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.auth.register.errors.generic);
+        return;
+      }
+      const data = (await response.json()) as { allRecommendations: RecommendationData[] };
+      setRecommendations(data.allRecommendations);
+      if (data.allRecommendations.length === recommendations.length) {
+        toast(page.noMoreOptions);
+      }
     } catch {
       toast.error(dict.auth.register.errors.generic);
     } finally {
-      setLoading(false);
+      setFindingMore(false);
     }
   };
 
@@ -82,16 +171,40 @@ export function CareerAnalysisView({
         }
       />
 
-      <InsightsCard insights={insights} />
-
-      {recommendations.length === 0 ? (
-        <EmptyState icon={Compass} title={page.generateCta} description={page.notReadyDescription} />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {recommendations.map((recommendation, i) => (
-            <RecommendationCard key={recommendation.id} recommendation={recommendation} rank={i + 1} />
-          ))}
+      {loading && recommendations.length === 0 ? (
+        <EmptyState icon={Sparkles} title={page.generatingTitle} description={page.generatingDescription} />
+      ) : status === "FAILED" && recommendations.length === 0 ? (
+        <div className="space-y-3">
+          <EmptyState icon={AlertCircle} title={page.generationFailedTitle} description={page.generationFailedDescription} />
+          <div className="flex justify-center">
+            <Button onClick={generate}>
+              <RotateCw />
+              {page.retryCta}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <>
+          <InsightsCard summary={summary} insights={insights} />
+
+          {recommendations.length === 0 ? (
+            <EmptyState icon={Compass} title={page.generateCta} description={page.notReadyDescription} />
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                {recommendations.map((recommendation, i) => (
+                  <RecommendationCard key={recommendation.id} recommendation={recommendation} rank={i + 1} />
+                ))}
+              </div>
+              <div className="flex justify-center pt-1">
+                <Button variant="outline" onClick={findMore} disabled={loading || findingMore}>
+                  {findingMore ? <RotateCw className="animate-spin" /> : <PlusCircle />}
+                  {page.findMoreCta}
+                </Button>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );

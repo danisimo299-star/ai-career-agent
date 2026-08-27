@@ -13,6 +13,7 @@ interface PersonalInfoSectionProps {
 export function PersonalInfoSection({ personalInfo, onChange }: PersonalInfoSectionProps) {
   const { dict } = useLocale();
   const labels = dict.dashboard.resumePage.sections;
+  const placeholders = dict.dashboard.resumePage.personalInfoPlaceholders;
 
   const set = (key: keyof ResumePersonalInfo, value: string) => onChange({ ...personalInfo, [key]: value });
 
@@ -28,23 +29,28 @@ export function PersonalInfoSection({ personalInfo, onChange }: PersonalInfoSect
       </div>
       <div className="space-y-1.5">
         <Label>{labels.phone}</Label>
-        <Input value={personalInfo.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
+        <Input value={personalInfo.phone ?? ""} onChange={(e) => set("phone", e.target.value)} placeholder={placeholders.phone} />
       </div>
       <div className="space-y-1.5">
         <Label>{labels.city}</Label>
-        <Input value={personalInfo.city ?? ""} onChange={(e) => set("city", e.target.value)} />
+        <Input value={personalInfo.city ?? ""} onChange={(e) => set("city", e.target.value)} placeholder={placeholders.city} />
       </div>
+      {/* Left blank on purpose is fine — the export drops empty/placeholder
+          answers automatically (see `getResumeContactItems`), so these three
+          are the only fields worth a concrete example placeholder: without
+          one, a blank-looking optional field invites someone to type "Нет"
+          into it, which then reads as a literal contact detail. */}
       <div className="space-y-1.5">
         <Label>{labels.linkedin}</Label>
-        <Input value={personalInfo.linkedin ?? ""} onChange={(e) => set("linkedin", e.target.value)} />
+        <Input value={personalInfo.linkedin ?? ""} onChange={(e) => set("linkedin", e.target.value)} placeholder={placeholders.linkedin} />
       </div>
       <div className="space-y-1.5">
         <Label>{labels.github}</Label>
-        <Input value={personalInfo.github ?? ""} onChange={(e) => set("github", e.target.value)} />
+        <Input value={personalInfo.github ?? ""} onChange={(e) => set("github", e.target.value)} placeholder={placeholders.github} />
       </div>
       <div className="space-y-1.5">
         <Label>{labels.website}</Label>
-        <Input value={personalInfo.website ?? ""} onChange={(e) => set("website", e.target.value)} />
+        <Input value={personalInfo.website ?? ""} onChange={(e) => set("website", e.target.value)} placeholder={placeholders.website} />
       </div>
     </div>
   );

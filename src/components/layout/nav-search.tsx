@@ -11,6 +11,7 @@ export function NavSearch() {
   return (
     <button
       type="button"
+      data-tour="search"
       onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT))}
       className="border-border/60 bg-card hover:border-ring text-muted-foreground flex w-full max-w-sm items-center gap-2 rounded-lg border py-2 pr-2 pl-3 text-left text-sm transition-colors duration-150"
     >

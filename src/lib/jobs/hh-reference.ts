@@ -1,5 +1,10 @@
 import type { WorkFormat } from "@prisma/client";
 import type { JobEmploymentType, JobExperienceLevel } from "./types";
+import { buildHHVacancyParams, workFormatToHhSchedule as workFormatToHhScheduleImpl } from "./hh-query";
+
+/** Re-exported so existing importers (`hh.provider.ts`, `mock.provider.ts`) don't need to know it now lives in `hh-query.ts`. */
+export const workFormatToHhSchedule = workFormatToHhScheduleImpl;
+export { HH_SCHEDULE_VALUES } from "./hh-query";
 
 /**
  * All IDs and vocabulary below were live-verified against the real HH.ru
@@ -48,18 +53,10 @@ export const HH_RUSSIA_AREA_ID = 113;
 
 export const HH_EXPERIENCE_VALUES = ["noExperience", "between1And3", "between3And6", "moreThan6"] as const;
 export const HH_EMPLOYMENT_VALUES = ["full", "part", "project", "volunteer", "probation"] as const;
-export const HH_SCHEDULE_VALUES = ["fullDay", "shift", "flexible", "remote", "flyInFlyOut"] as const;
 
 export function resolveHhAreaId(city?: string | null): number {
   if (!city) return HH_RUSSIA_AREA_ID;
   return HH_AREA_IDS[city.trim().toLowerCase()] ?? HH_RUSSIA_AREA_ID;
-}
-
-/** HH.ru has no "hybrid" schedule value — HYBRID/ANY deliberately leave `schedule` unset rather than guessing. */
-export function workFormatToHhSchedule(format?: WorkFormat | null): (typeof HH_SCHEDULE_VALUES)[number] | undefined {
-  if (format === "REMOTE") return "remote";
-  if (format === "ONSITE") return "fullDay";
-  return undefined;
 }
 
 export interface HhSearchLinkParams {
@@ -69,25 +66,27 @@ export interface HhSearchLinkParams {
   experience?: JobExperienceLevel | null;
   employmentTypes?: JobEmploymentType[];
   salaryMin?: number | null;
+  professionalRoleIds?: number[];
+  /** Pre-resolved (e.g. via the live `resolveAreaIdLive`) — takes priority over `city` when given, so this link always matches whatever area a search/validation step already resolved. */
+  areaId?: number | null;
 }
 
 /**
  * Builds a real `hh.ru/search/vacancy` URL with genuine parameter names and
- * values. Never encodes a specific vacancy ID — only search criteria — so
- * it can never point at a vacancy that doesn't exist.
+ * values, via the same `buildHHVacancyParams` the real API search and the
+ * market validator use — never encodes a specific vacancy ID, only search
+ * criteria, so it can never point at a vacancy that doesn't exist.
  */
 export function buildHhSearchUrl(params: HhSearchLinkParams): string {
   const url = new URL("https://hh.ru/search/vacancy");
-  url.searchParams.set("text", params.text);
-  url.searchParams.set("area", String(resolveHhAreaId(params.city)));
-  url.searchParams.set("search_field", "name");
-  if (params.experience) url.searchParams.set("experience", params.experience);
-  for (const employment of params.employmentTypes ?? []) url.searchParams.append("employment", employment);
-  const schedule = workFormatToHhSchedule(params.workFormat);
-  if (schedule) url.searchParams.set("schedule", schedule);
-  if (params.salaryMin) {
-    url.searchParams.set("salary", String(params.salaryMin));
-    url.searchParams.set("only_with_salary", "true");
-  }
+  url.search = buildHHVacancyParams({
+    text: params.text,
+    professionalRoleIds: params.professionalRoleIds,
+    areaId: params.areaId ?? resolveHhAreaId(params.city),
+    experience: params.experience ?? undefined,
+    employmentTypes: params.employmentTypes,
+    workFormat: params.workFormat ?? undefined,
+    salaryMin: params.salaryMin ?? undefined,
+  }).toString();
   return url.toString();
 }

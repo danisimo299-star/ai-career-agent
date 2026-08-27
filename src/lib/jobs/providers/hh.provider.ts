@@ -2,7 +2,9 @@ import type { JobRecommendationDTO } from "@/types";
 import type { WorkFormat } from "@prisma/client";
 import { env } from "@/lib/env";
 import type { JobSearchQuery, JobsProvider } from "../types";
-import { resolveHhAreaId, workFormatToHhSchedule } from "../hh-reference";
+import { resolveAreaIdLive } from "../hh-areas";
+import { buildHHVacancyParams } from "../hh-query";
+import { HH_USER_AGENT, fetchHhAuthed } from "../hh-client";
 import { isTrustedHhUrl } from "@/lib/security/url-safety";
 
 interface HhVacancy {
@@ -21,6 +23,7 @@ interface HhVacancy {
 
 interface HhSearchResponse {
   items: HhVacancy[];
+  found: number;
 }
 
 function hhScheduleToWorkFormat(scheduleId?: string): WorkFormat {
@@ -75,41 +78,57 @@ function mapVacancy(vacancy: HhVacancy): JobRecommendationDTO | null {
  * either way. Once a token is configured, this same code path starts
  * returning real, provider-reported vacancy data with genuine
  * `alternate_url`s — no other code changes needed.
+ *
+ * Query params are built by the same `buildHHVacancyParams` the market
+ * validator uses (see `career-market.service.ts`) and the area is resolved
+ * by the same live `resolveAreaIdLive` — this provider is never the reason
+ * a validated recommendation shows 0 vacancies on the Jobs page.
  */
 export class HhJobsProvider implements JobsProvider {
   readonly name = "hh";
 
   async search(query: JobSearchQuery): Promise<JobRecommendationDTO[]> {
-    if (!env.HH_ACCESS_TOKEN) return [];
-
-    try {
-      const url = new URL("https://api.hh.ru/vacancies");
-      url.searchParams.set("text", query.targetRole);
-      url.searchParams.set("area", String(resolveHhAreaId(query.city)));
-      url.searchParams.set("search_field", "name");
-      url.searchParams.set("per_page", "20");
-      if (query.experience) url.searchParams.set("experience", query.experience);
-      for (const employment of query.employmentTypes ?? []) url.searchParams.append("employment", employment);
-      const schedule = workFormatToHhSchedule(query.workFormat);
-      if (schedule) url.searchParams.set("schedule", schedule);
-      if (query.salaryMin) {
-        url.searchParams.set("salary", String(query.salaryMin));
-        url.searchParams.set("only_with_salary", "true");
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "AI-Career-Agent/1.0 (contact: support@ai-career-agent.local)",
-          Authorization: `Bearer ${env.HH_ACCESS_TOKEN}`,
-        },
-      });
-
-      if (!response.ok) return [];
-
-      const data = (await response.json()) as HhSearchResponse;
-      return (data.items ?? []).map(mapVacancy).filter((v): v is JobRecommendationDTO => v !== null);
-    } catch {
-      return [];
-    }
+    const result = await searchHhVacancies(query);
+    return result.status === "ok" ? result.data : [];
   }
 }
+
+interface HhVacancySearchOk {
+  status: "ok";
+  data: JobRecommendationDTO[];
+  /** HH's own reported total match count — may exceed `data.length` (capped by `per_page`). */
+  found: number;
+}
+
+export type HhVacancySearchResult = HhVacancySearchOk | { status: "no_token" | "http_error" | "network_error" };
+
+/**
+ * The one real `/vacancies` call in the app — `HhJobsProvider.search()`
+ * (Jobs page) and `career-market.service.ts` (recommendation validation)
+ * both call this, so they can never diverge on what "search for X" means.
+ * Returns a distinguishable status so a caller can tell "confirmed zero"
+ * apart from "couldn't check" (item 22 of the market-reality brief).
+ */
+export async function searchHhVacancies(query: JobSearchQuery): Promise<HhVacancySearchResult> {
+  const areaId = await resolveAreaIdLive(query.city);
+  const url = new URL("https://api.hh.ru/vacancies");
+  url.search = buildHHVacancyParams({
+    text: query.targetRole,
+    professionalRoleIds: query.professionalRoleIds,
+    areaId,
+    experience: query.experience,
+    employmentTypes: query.employmentTypes,
+    workFormat: query.workFormat,
+    salaryMin: query.salaryMin,
+    page: query.page,
+  }).toString();
+
+  const result = await fetchHhAuthed<HhSearchResponse>(url, env.HH_ACCESS_TOKEN);
+  if (result.status !== "ok") return result;
+
+  const data = result.data.items.map(mapVacancy).filter((v): v is JobRecommendationDTO => v !== null);
+  return { status: "ok", data, found: result.data.found ?? data.length };
+}
+
+// Re-exported for any caller that still wants the plain "identify yourself" header value.
+export { HH_USER_AGENT };

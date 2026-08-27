@@ -52,6 +52,10 @@ export class MockJobsProvider implements JobsProvider {
   readonly name = "mock";
 
   async search(query: JobSearchQuery): Promise<JobRecommendationDTO[]> {
+    // Only ever one page of demo data — honestly return nothing further
+    // rather than repeating the same 5 templates under a "load more" click.
+    if (query.page && query.page > 0) return [];
+
     const city = query.city ?? undefined;
     const requiredSkills = guessRequiredSkills(query.targetRole, query.skills);
 

@@ -140,7 +140,7 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
         </DropdownMenu>
 
         <DropdownMenu>
-          <DropdownMenuTrigger className="hover:bg-accent ml-1 flex items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors duration-150">
+          <DropdownMenuTrigger data-tour="settings" className="hover:bg-accent ml-1 flex items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors duration-150">
             <Avatar className="size-8">
               {userImage && <AvatarImage src={userImage} alt={userName ?? ""} />}
               <AvatarFallback>{initials}</AvatarFallback>

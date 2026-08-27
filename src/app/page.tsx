@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
-import { siteConfig } from "@/config/site";
+import { ProfyMindLogo } from "@/components/brand/profymind-logo";
 import { useLocale } from "@/lib/i18n/locale-provider";
-import { Sparkles, MessageCircle, Compass, Map, FileText, Mic, Briefcase } from "lucide-react";
+import { MessageCircle, Compass, Map, FileText, Mic, Briefcase } from "lucide-react";
 
 const featureIcons = [MessageCircle, Compass, Map, FileText, Mic, Briefcase] as const;
 const featureKeys = ["chat", "careerAnalysis", "roadmap", "resume", "interview", "jobs"] as const;
@@ -18,10 +18,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex h-16 items-center justify-between border-b px-6">
-        <div className="flex items-center gap-2 font-semibold">
-          <Sparkles className="text-primary size-5" />
-          {siteConfig.name}
-        </div>
+        <ProfyMindLogo />
         <div className="flex items-center gap-1">
           <LanguageSwitcher />
           <ThemeToggle />

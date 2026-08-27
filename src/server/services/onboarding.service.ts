@@ -29,4 +29,9 @@ export const onboardingService = {
 
     return profile;
   },
+
+  /** Marks the Welcome + product tour as shown once. Separate from `onboardingCompleted` — Settings' "Replay tour" re-shows it without touching this flag, see `dashboard-tour.tsx`. */
+  async completeTour(userId: string) {
+    return prisma.profile.update({ where: { userId }, data: { tourCompleted: true } });
+  },
 };

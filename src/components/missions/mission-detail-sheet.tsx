@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Target, Lightbulb, Sparkles, ListChecks } from "lucide-react";
+import { Clock, Target, Lightbulb, Sparkles, ListChecks, RotateCw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -165,6 +165,7 @@ function MissionDetailContent({
               {page.skipCta}
             </Button>
             <Button variant="outline" className="sm:flex-1" onClick={() => onRegenerate(mission.id)} disabled={busy}>
+              {busy && <RotateCw className="animate-spin" />}
               {page.regenerateCta}
             </Button>
           </div>

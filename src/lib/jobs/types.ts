@@ -18,6 +18,10 @@ export interface JobSearchQuery {
   employmentTypes?: JobEmploymentType[];
   salaryMin?: number;
   internshipOnly?: boolean;
+  /** HH's own professional-role category id(s), when a career recommendation already resolved to one — see `hh-professional-roles.ts`. Narrows the search far more reliably than free text alone. */
+  professionalRoleIds?: number[];
+  /** 0-based — "Показать ещё вакансии" fetches the next page instead of re-running page 0. */
+  page?: number;
 }
 
 /**

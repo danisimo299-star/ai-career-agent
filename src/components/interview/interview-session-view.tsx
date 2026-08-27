@@ -101,9 +101,9 @@ export function InterviewSessionView({ session, onAnswer, onFinish, finishing }:
         open={confirmFinishOpen}
         onOpenChange={setConfirmFinishOpen}
         loading={finishing}
-        onConfirm={() => {
+        onConfirm={async () => {
+          await onFinish();
           setConfirmFinishOpen(false);
-          onFinish();
         }}
       />
     </div>

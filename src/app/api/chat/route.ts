@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { chatService } from "@/server/services/chat.service";
 import { QUESTION_IDS } from "@/lib/ai/career/questionnaire";
-import { AIProviderUnavailableError } from "@/lib/errors";
+import { AIProviderUnavailableError, ConcurrentInterviewWriteError } from "@/lib/errors";
 import { z } from "zod";
 
 const sendMessageSchema = z
@@ -41,6 +41,10 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof AIProviderUnavailableError) return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
+    // A genuine overlapping/duplicate submit for the same user — the whole
+    // write was rolled back (nothing corrupted or duplicated), the client's
+    // existing retry flow re-sends the same answer against fresh state.
+    if (error instanceof ConcurrentInterviewWriteError) return NextResponse.json({ error: "conflict" }, { status: 409 });
     console.error("chat.sendMessage failed", error);
     return NextResponse.json({ error: "generic" }, { status: 500 });
   }

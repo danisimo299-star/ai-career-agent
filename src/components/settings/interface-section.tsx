@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon, Monitor, Compass } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { useMounted } from "@/hooks/use-mounted";
@@ -63,6 +65,24 @@ export function InterfaceSection() {
               </Button>
             ))}
           </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>{page.tourLabel}</Label>
+          <p className="text-muted-foreground text-sm">{page.tourDescription}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            nativeButton={false}
+            render={<Link href="/dashboard?tour=replay" />}
+          >
+            <Compass className="size-3.5" />
+            {page.tourCta}
+          </Button>
         </div>
       </CardContent>
     </Card>

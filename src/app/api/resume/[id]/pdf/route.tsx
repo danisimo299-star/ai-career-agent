@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
 
     const buffer = await renderToBuffer(
-      <ResumePdfDocument content={content} template={resume.template} dict={dict} />
+      <ResumePdfDocument content={content} template={resume.template} dict={dict} targetRole={resume.title} />
     );
 
     const rawName = content.personalInfo.fullName.trim() || "resume";

@@ -17,6 +17,10 @@ export const jobSearchFiltersSchema = z.object({
   salaryMin: z.number().int().positive().max(100_000_000).optional(),
   internshipOnly: z.boolean().optional(),
   sort: jobSortOrderSchema.optional(),
+  /** A career recommendation already resolved to a real HH professional-role id — reuses it instead of re-guessing from `targetRole` text alone. */
+  professionalRoleIds: z.array(z.number().int().positive()).max(5).optional(),
+  /** 0-based — "Показать ещё вакансии" fetches the next page instead of re-running page 0. */
+  page: z.number().int().min(0).max(50).optional(),
 });
 export type JobSearchFiltersInput = z.infer<typeof jobSearchFiltersSchema>;
 

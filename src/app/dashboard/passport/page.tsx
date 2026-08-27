@@ -4,17 +4,19 @@ import { profileRepository } from "@/server/repositories/profile.repository";
 import { careerScoreService } from "@/server/services/career-score.service";
 import { careerAnalysisService } from "@/server/services/career-analysis.service";
 import { missionsService } from "@/server/services/missions.service";
+import { interviewAttemptRepository } from "@/server/repositories/interview-attempt.repository";
 import { CareerPassportView } from "@/components/career/career-passport-view";
 
 export default async function CareerPassportPage() {
   const user = await getCurrentUser();
   if (!user?.id) redirect("/login");
 
-  const [profile, scoreSnapshot, analysis, missions] = await Promise.all([
+  const [profile, scoreSnapshot, analysis, missions, interviewHistory] = await Promise.all([
     profileRepository.findByUserId(user.id),
     careerScoreService.getSnapshot(user.id),
     careerAnalysisService.getExisting(user.id),
     missionsService.sync(user.id),
+    interviewAttemptRepository.listCompleted(user.id),
   ]);
 
   return (
@@ -45,9 +47,23 @@ export default async function CareerPassportPage() {
         learningTimeMonths: rec.learningTimeMonths,
         growthPotential: rec.growthPotential,
         difficultyLevel: rec.difficultyLevel,
+        hhSearchTitle: rec.hhSearchTitle,
+        firstJobTitle: rec.firstJobTitle,
+        marketDemand: rec.marketDemand,
+        vacancyCountCity: rec.vacancyCountCity,
+        vacancyCountRussia: rec.vacancyCountRussia,
+        marketCheckedCity: rec.marketCheckedCity,
+        hhProfessionalRoleId: rec.hhProfessionalRoleId,
+        hhAreaId: rec.hhAreaId,
       }))}
       insights={analysis.insights}
+      summary={analysis.summary}
       missions={missions.map((mission) => ({ id: mission.id, key: mission.key, status: mission.status }))}
+      interviewHistory={interviewHistory.map((attempt) => ({
+        id: attempt.id,
+        completedAt: attempt.completedAt?.toISOString() ?? attempt.startedAt.toISOString(),
+        topCareerTitle: attempt.topCareerTitle,
+      }))}
     />
   );
 }

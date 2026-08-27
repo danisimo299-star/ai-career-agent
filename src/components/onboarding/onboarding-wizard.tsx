@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
-import { Sparkles, ArrowRight, ArrowLeft, PartyPopper } from "lucide-react";
+import { ArrowRight, ArrowLeft, PartyPopper } from "lucide-react";
+import { ProfyMindLogo } from "@/components/brand/profymind-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OptionCard } from "@/components/onboarding/option-card";
@@ -185,7 +186,7 @@ export function OnboardingWizard() {
               {step === "welcome" && (
                 <div className="flex flex-col items-center gap-6 text-center">
                   <div className="bg-primary/10 flex size-16 items-center justify-center rounded-2xl">
-                    <Sparkles className="text-primary size-8" />
+                    <ProfyMindLogo withWordmark={false} size="lg" />
                   </div>
                   <div className="space-y-3">
                     <h1 className="text-2xl font-semibold tracking-tight">

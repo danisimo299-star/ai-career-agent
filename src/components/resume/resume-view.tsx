@@ -575,7 +575,7 @@ export function ResumeView({ initialResume, suggestedTargetRole }: { initialResu
         </TabsContent>
 
         <TabsContent value="preview" className="mt-4">
-          <ResumePreview content={content} template={template} />
+          <ResumePreview content={content} template={template} targetRole={title} />
         </TabsContent>
       </Tabs>
 

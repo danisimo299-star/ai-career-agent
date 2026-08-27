@@ -21,11 +21,12 @@ interface RoadmapViewProps {
   initialRoadmap: RoadmapData | null;
   careerScore: number;
   suggestedCareerTitle: string | null;
+  recommendedCareers: string[];
 }
 
 type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "invalid_input" | null;
 
-export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle }: RoadmapViewProps) {
+export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle, recommendedCareers }: RoadmapViewProps) {
   const { dict } = useLocale();
   const page = dict.dashboard.roadmapPage;
 
@@ -135,7 +136,12 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
           open={careerPickerOpen}
           onOpenChange={setCareerPickerOpen}
           currentCareerTitle={suggestedCareerTitle}
-          onSelect={(title) => generate(title)}
+          loading={generating}
+          recommendedCareers={recommendedCareers}
+          onSelect={async (title) => {
+            await generate(title);
+            setCareerPickerOpen(false);
+          }}
         />
       </div>
     );
@@ -167,6 +173,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
         estimatedRange={estimatedRange}
         onChangeCareer={() => setCareerPickerOpen(true)}
         onRegenerate={() => setRegenerateConfirmOpen(true)}
+        disabled={generating}
       />
 
       <InsightBanner text={insightText} />
@@ -187,16 +194,21 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle 
         open={careerPickerOpen}
         onOpenChange={setCareerPickerOpen}
         currentCareerTitle={roadmap.careerTitle}
-        onSelect={(title) => generate(title)}
+        loading={generating}
+        recommendedCareers={recommendedCareers}
+        onSelect={async (title) => {
+          await generate(title);
+          setCareerPickerOpen(false);
+        }}
       />
 
       <RegenerateConfirmDialog
         open={regenerateConfirmOpen}
         onOpenChange={setRegenerateConfirmOpen}
         loading={generating}
-        onConfirm={() => {
+        onConfirm={async () => {
+          await generate(roadmap.careerTitle);
           setRegenerateConfirmOpen(false);
-          generate(roadmap.careerTitle);
         }}
       />
     </motion.div>

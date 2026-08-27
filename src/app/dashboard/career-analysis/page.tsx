@@ -8,7 +8,7 @@ export default async function CareerAnalysisPage() {
   const user = await getCurrentUser();
   if (!user?.id) redirect("/login");
 
-  const [profile, { recommendations, insights }] = await Promise.all([
+  const [profile, { recommendations, insights, summary, status }] = await Promise.all([
     profileRepository.findByUserId(user.id),
     careerAnalysisService.getExisting(user.id),
   ]);
@@ -26,8 +26,18 @@ export default async function CareerAnalysisPage() {
         learningTimeMonths: rec.learningTimeMonths,
         growthPotential: rec.growthPotential,
         difficultyLevel: rec.difficultyLevel,
+        hhSearchTitle: rec.hhSearchTitle,
+        firstJobTitle: rec.firstJobTitle,
+        marketDemand: rec.marketDemand,
+        vacancyCountCity: rec.vacancyCountCity,
+        vacancyCountRussia: rec.vacancyCountRussia,
+        marketCheckedCity: rec.marketCheckedCity,
+        hhProfessionalRoleId: rec.hhProfessionalRoleId,
+        hhAreaId: rec.hhAreaId,
       }))}
       initialInsights={insights}
+      initialSummary={summary}
+      initialStatus={status}
       readyForAnalysis={readyForAnalysis}
     />
   );

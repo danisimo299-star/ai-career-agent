@@ -65,7 +65,14 @@ export class OllamaProvider implements AIProvider {
         // live conversation, not a reasoning benchmark, so thinking is off.
         think: false,
         format: options?.jsonMode ? "json" : undefined,
-        options: { temperature: options?.temperature ?? 0.7 },
+        // Structured product-analysis calls ask for a few short sentences
+        // per field, never an essay — bounding `num_predict` stops a local
+        // model from wandering into a much longer generation than the
+        // response actually needs, which was a direct contributor to the
+        // multi-second-to-a-minute Career Analysis latency (num_ctx large
+        // enough to hold the whole prompt + conversation history without
+        // Ollama silently truncating older turns).
+        options: { temperature: options?.temperature ?? 0.7, num_predict: options?.maxTokens ?? 500, num_ctx: 8192 },
       },
       options?.signal
     );

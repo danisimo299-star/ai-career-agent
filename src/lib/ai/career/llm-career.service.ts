@@ -1,8 +1,7 @@
 import type { AIProvider, AIMessage } from "../types";
 import {
   buildAnalyzeUserPrompt,
-  buildCareerRecommendationsPrompt,
-  buildCareerInsightsPrompt,
+  buildCareerAnalysisPrompt,
   buildRoadmapPrompt,
   buildResumePrompt,
   buildResumeSectionPrompt,
@@ -18,8 +17,7 @@ import {
 } from "./prompts";
 import {
   analyzeUserResponseSchema,
-  careerRecommendationsResponseSchema,
-  careerInsightsResponseSchema,
+  careerAnalysisResponseSchema,
   roadmapResponseSchema,
   resumeDraftResponseSchema,
   resumeSectionResponseSchema,
@@ -37,7 +35,7 @@ import type {
   AnalyzeUserInput,
   UserAnalysisResult,
   CareerAnalysisContext,
-  CareerRecommendationResult,
+  CareerAnalysisResult,
   RoadmapGenerationContext,
   RoadmapMilestoneResult,
   ResumeGenerationContext,
@@ -67,7 +65,13 @@ function parseJson<T>(raw: string, schema: { parse: (data: unknown) => T }, labe
   try {
     data = JSON.parse(raw);
   } catch {
-    throw new Error(`${label}: AI response was not valid JSON`);
+    // A truncated response (the model hit `num_predict` before finishing)
+    // is the most common real cause — the tail of `raw` is what shows that,
+    // never logged in production since this can echo profile-derived text.
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[llm-career] ${label}: unparseable JSON, length=${raw.length}, tail: …${raw.slice(-200)}`);
+    }
+    throw new Error(`${label}: AI response was not valid JSON (length ${raw.length})`);
   }
 
   return schema.parse(data);
@@ -87,38 +91,46 @@ export class LLMCareerService implements AICareerService {
     schema: { parse: (data: unknown) => T },
     label: string,
     conversation: AIMessage[] = [],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    maxTokens?: number
   ): Promise<T> {
     const messages: AIMessage[] = [{ role: "system", content: systemPrompt }, ...conversation];
-    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal });
+    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal, maxTokens });
     return parseJson(result.content, schema, label);
   }
 
   async analyzeUser(input: AnalyzeUserInput): Promise<UserAnalysisResult> {
     const conversation: AIMessage[] = input.history.map((turn) => ({ role: turn.role, content: turn.content }));
-    return this.completeJson(buildAnalyzeUserPrompt(input), analyzeUserResponseSchema, "analyzeUser", conversation);
+    return this.completeJson(buildAnalyzeUserPrompt(input), analyzeUserResponseSchema, "analyzeUser", conversation, input.signal);
   }
 
-  async generateCareerRecommendations(input: CareerAnalysisContext): Promise<CareerRecommendationResult[]> {
-    const result = await this.completeJson(
-      buildCareerRecommendationsPrompt(input),
-      careerRecommendationsResponseSchema,
-      "generateCareerRecommendations"
-    );
-    return result.recommendations;
-  }
-
-  async generateCareerInsights(input: CareerAnalysisContext): Promise<string[]> {
-    const result = await this.completeJson(
-      buildCareerInsightsPrompt(input),
-      careerInsightsResponseSchema,
-      "generateCareerInsights"
-    );
-    return result.insights;
+  async generateCareerAnalysis(input: CareerAnalysisContext): Promise<CareerAnalysisResult> {
+    // 5 recommendations + summary + insights genuinely needs more room than
+    // the default budget for a short acknowledgement/classification call.
+    const result = await this.completeJson(buildCareerAnalysisPrompt(input), careerAnalysisResponseSchema, "generateCareerAnalysis", [], input.signal, 1800);
+    return {
+      summary: result.summary,
+      insights: result.insights,
+      recommendations: result.recommendations.map((rec) => ({
+        ...rec,
+        hhSearchTitle: rec.hhSearchTitle ?? rec.title,
+        firstJobTitle: rec.firstJobTitle ?? rec.title,
+        searchAliases: rec.searchAliases ?? [],
+      })),
+    };
   }
 
   async generateRoadmap(input: RoadmapGenerationContext): Promise<RoadmapMilestoneResult[]> {
-    const result = await this.completeJson(buildRoadmapPrompt(input), roadmapResponseSchema, "generateRoadmap");
+    // 6-8 milestones with 3-4 tasks each (trimmed from 6-10/3-6, and
+    // resources requested only on each milestone's first task — see
+    // `buildRoadmapPrompt`) — still a genuinely large structured response,
+    // so it gets real headroom rather than the default budget. The
+    // ORIGINAL 6-10/3-6 shape with per-task resources measured live at
+    // ~3400+ real output tokens, which silently truncated mid-JSON at a
+    // 2500-token cap after a 95s wait (`AI response was not valid JSON`) —
+    // this smaller ask plus a larger cap fixes both the correctness bug and
+    // the latency at once.
+    const result = await this.completeJson(buildRoadmapPrompt(input), roadmapResponseSchema, "generateRoadmap", [], input.signal, 3000);
     return result.milestones;
   }
 
@@ -141,7 +153,7 @@ export class LLMCareerService implements AICareerService {
   }
 
   async generateCareerMissions(input: CareerMissionsContext): Promise<CareerMissionsGenerationResult> {
-    return this.completeJson(buildCareerMissionsPrompt(input), careerMissionsResponseSchema, "generateCareerMissions");
+    return this.completeJson(buildCareerMissionsPrompt(input), careerMissionsResponseSchema, "generateCareerMissions", [], input.signal, 3000);
   }
 
   async generateInterviewQuestion(input: InterviewQuestionContext): Promise<InterviewQuestionResult> {
@@ -153,19 +165,26 @@ export class LLMCareerService implements AICareerService {
   }
 
   async evaluateInterviewAnswer(input: InterviewAnswerContext): Promise<InterviewAnswerEvaluationResult> {
+    // 7 score fields plus 4 real text fields (feedback/strengths/improvements/idealAnswerNotes) — the
+    // default 500-token budget was tight enough to risk truncated JSON.
     return this.completeJson(
       buildInterviewAnswerEvaluationPrompt(input),
       interviewAnswerEvaluationResponseSchema,
-      "evaluateInterviewAnswer"
+      "evaluateInterviewAnswer",
+      [],
+      undefined,
+      900
     );
   }
 
   async generateInterviewReport(input: InterviewReportContext): Promise<InterviewReportResult> {
-    return this.completeJson(buildInterviewReportPrompt(input), interviewReportResponseSchema, "generateInterviewReport");
+    // 5 category scores plus 3 arrays (2-4 items each) plus a narrative verdict.
+    return this.completeJson(buildInterviewReportPrompt(input), interviewReportResponseSchema, "generateInterviewReport", [], undefined, 900);
   }
 
   async generateJobPreparationPlan(input: JobPreparationContext): Promise<JobPreparationResult> {
-    return this.completeJson(buildJobPreparationPrompt(input), jobPreparationResponseSchema, "generateJobPreparationPlan");
+    // 5 separate arrays (up to ~19 short strings total).
+    return this.completeJson(buildJobPreparationPrompt(input), jobPreparationResponseSchema, "generateJobPreparationPlan", [], undefined, 900);
   }
 
   async parseJobSearchQuery(input: JobSearchAssistantContext): Promise<JobSearchAssistantResult> {

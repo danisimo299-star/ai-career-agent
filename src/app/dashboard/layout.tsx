@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { DashboardTour } from "@/components/onboarding/dashboard-tour";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { profileRepository } from "@/server/repositories/profile.repository";
@@ -36,6 +38,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       <MobileBottomNav />
       <CommandPalette />
+      <Suspense>
+        <DashboardTour tourCompleted={profile.tourCompleted} />
+      </Suspense>
     </div>
   );
 }

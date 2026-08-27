@@ -56,6 +56,8 @@ export interface AnalyzeUserInput {
   nextQuestionCategory: QuestionCategory | null;
   /** Small bag of already-resolved, locale-correct label strings (e.g. `pickedInterestLabel`) the acknowledgement can naturally reference without re-deriving them from raw keys. */
   context: Record<string, string>;
+  /** Aborts the underlying provider call on timeout — this is decorative flavor text on the critical path of every "Continue" click, so it must never be allowed to hang the whole answer-save (see `chat.service.ts`). */
+  signal?: AbortSignal;
 }
 
 export interface UserAnalysisResult {
@@ -67,6 +69,9 @@ export interface UserAnalysisResult {
 export interface CareerAnalysisContext {
   locale: Locale;
   profile: ProfileSnapshot;
+  /** Titles already tried and rejected by the HH market validator this round — the model must not repeat them (see `career-analysis.service.ts`'s bounded retry). */
+  excludeTitles?: string[];
+  signal?: AbortSignal;
 }
 
 export interface CareerRecommendationResult {
@@ -77,6 +82,20 @@ export interface CareerRecommendationResult {
   learningTimeMonths: number;
   growthPotential: "LOW" | "MEDIUM" | "HIGH";
   difficultyLevel: "EASY" | "MEDIUM" | "HARD";
+  /** The real-job-market search string for `title` — what actually gets sent to hh.ru. */
+  hhSearchTitle: string;
+  /** A realistic entry-level title for someone at the user's current level — see "Target Career vs First Job". */
+  firstJobTitle: string;
+  /** 2-4 alternate real job titles for the same role, tried by the market validator. */
+  searchAliases: string[];
+}
+
+/** One combined generation — see `buildCareerAnalysisPrompt`'s doc comment for why this replaced two separate calls. */
+export interface CareerAnalysisResult {
+  /** 2-3 sentence quick take — the single most important thing to know, shown before the detailed insights list. */
+  summary: string;
+  insights: string[];
+  recommendations: CareerRecommendationResult[];
 }
 
 export interface RoadmapGenerationContext {
@@ -85,6 +104,7 @@ export interface RoadmapGenerationContext {
   profile: ProfileSnapshot;
   dna: CareerDnaScores | null;
   careerScore: number | null;
+  signal?: AbortSignal;
 }
 
 export interface RoadmapResourceResult {
@@ -304,6 +324,7 @@ export interface CareerMissionsContext {
   completedMissionTitles: string[];
   skippedMissionTitles: string[];
   count: number;
+  signal?: AbortSignal;
 }
 
 export interface CareerMissionResult {
@@ -483,8 +504,7 @@ export type CoachStreamEvent = { type: "delta"; text: string } | ({ type: "done"
  */
 export interface AICareerService {
   analyzeUser(input: AnalyzeUserInput): Promise<UserAnalysisResult>;
-  generateCareerRecommendations(input: CareerAnalysisContext): Promise<CareerRecommendationResult[]>;
-  generateCareerInsights(input: CareerAnalysisContext): Promise<string[]>;
+  generateCareerAnalysis(input: CareerAnalysisContext): Promise<CareerAnalysisResult>;
   generateRoadmap(input: RoadmapGenerationContext): Promise<RoadmapMilestoneResult[]>;
   generateResume(input: ResumeGenerationContext): Promise<ResumeDraftResult>;
   generateResumeSection(input: ResumeSectionContext): Promise<ResumeSectionSuggestion>;

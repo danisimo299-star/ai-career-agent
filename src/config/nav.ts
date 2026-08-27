@@ -31,9 +31,9 @@ export interface NavItem {
 export const dashboardNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, group: "primary" },
   { labelKey: "missions", href: "/dashboard/missions", icon: Target, group: "primary" },
+  { labelKey: "coach", href: "/dashboard/coach", icon: Sparkles, group: "primary" },
   { labelKey: "resume", href: "/dashboard/resume", icon: FileText, group: "primary" },
   { labelKey: "jobs", href: "/dashboard/jobs", icon: Briefcase, group: "primary" },
-  { labelKey: "coach", href: "/dashboard/coach", icon: Sparkles, group: "primary" },
   { labelKey: "passport", href: "/dashboard/passport", icon: IdCard, group: "account" },
   // A clipboard/assessment icon, deliberately NOT a chat bubble — the
   // Career Interview is a structured profile-builder, not a chat, and

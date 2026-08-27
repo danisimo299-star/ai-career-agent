@@ -15,6 +15,7 @@ interface RoadmapHeaderProps {
   estimatedRange: { min: number; max: number };
   onChangeCareer: () => void;
   onRegenerate: () => void;
+  disabled?: boolean;
 }
 
 export function RoadmapHeader({
@@ -24,6 +25,7 @@ export function RoadmapHeader({
   estimatedRange,
   onChangeCareer,
   onRegenerate,
+  disabled,
 }: RoadmapHeaderProps) {
   const { dict } = useLocale();
   const page = dict.dashboard.roadmapPage;
@@ -48,12 +50,12 @@ export function RoadmapHeader({
                 </Link>
               }
             />
-            <Button variant="outline" size="sm" onClick={onChangeCareer}>
+            <Button variant="outline" size="sm" onClick={onChangeCareer} disabled={disabled}>
               <Briefcase />
               {page.changeCareerCta}
             </Button>
-            <Button variant="outline" size="sm" onClick={onRegenerate}>
-              <RotateCw />
+            <Button variant="outline" size="sm" onClick={onRegenerate} disabled={disabled}>
+              <RotateCw className={disabled ? "animate-spin" : undefined} />
               {page.regenerateCta}
             </Button>
           </div>

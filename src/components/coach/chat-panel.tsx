@@ -76,7 +76,7 @@ function CoachMessageBubble({
       <div className={cn("min-w-0 space-y-1", isUser ? "max-w-[85%]" : "max-w-full flex-1")}>
         <div
           className={cn(
-            "text-sm leading-normal",
+            "text-base leading-relaxed",
             isUser ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3.5 py-2.5" : "px-0.5 py-1"
           )}
         >
@@ -277,9 +277,9 @@ export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
   const lastAssistantId = [...messages].reverse().find((m) => m.role === "ASSISTANT")?.id;
 
   return (
-    <div>
+    <div className="mx-auto flex min-h-[65dvh] w-full max-w-3xl flex-col">
       {messages.length === 0 ? (
-        <div className="mx-auto flex min-h-[55dvh] w-full max-w-3xl flex-col items-center justify-center gap-4 px-3 text-center sm:px-4">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 text-center sm:px-4">
           <div className="bg-primary/15 flex size-12 items-center justify-center rounded-full">
             <Sparkles className="text-primary size-6" />
           </div>
@@ -296,7 +296,11 @@ export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-3xl flex-col space-y-3.5 px-3 py-2 sm:px-4">
+        // `justify-end` anchors a short thread to the bottom of the flex
+        // column (next to the composer) instead of leaving it stranded up
+        // near the header with a dead gap below — see item on the chat
+        // composer floating mid-page.
+        <div className="flex flex-1 flex-col justify-end space-y-3.5 px-3 py-2 sm:px-4">
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
               <CoachMessageBubble key={msg.id} msg={msg} isLastAssistant={msg.id === lastAssistantId} onRegenerate={regenerate} />
@@ -306,7 +310,7 @@ export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
       )}
 
       <div className="pt-3">
-        <div ref={bottomRef} className="mx-auto w-full max-w-3xl px-3 pb-4 sm:px-4">
+        <div ref={bottomRef} className="px-3 pb-4 sm:px-4">
           {error && (
             <div className="mb-2 flex items-center justify-between gap-2 text-sm">
               <p className="text-destructive">{error}</p>

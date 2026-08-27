@@ -16,6 +16,16 @@ class RoadmapAccessError extends Error {
   }
 }
 
+/**
+ * Generous but bounded — a full 6-8 milestone roadmap is a large generation
+ * (~3000 output tokens); live-measured on this deployment's local model at
+ * 87s for a real, successful generation, so the budget needs real margin
+ * above that rather than cutting it close — this only guards against a
+ * truly stuck/crashed Ollama process, not the model's real throughput. See
+ * `career-analysis.service.ts` for the same reasoning.
+ */
+const AI_CALL_TIMEOUT_MS = 120_000;
+
 function toMilestoneInputs(milestones: RoadmapMilestoneResult[]): CreateMilestoneInput[] {
   const statuses = initialMilestoneStatuses(milestones.length);
 
@@ -44,13 +54,21 @@ export const roadmapService = {
       careerScoreService.getSnapshot(userId),
     ]);
 
-    const milestoneResults = await getAICareerService().generateRoadmap({
-      locale,
-      careerTitle,
-      profile: toProfileSnapshot(profile),
-      dna: scoreSnapshot.dna,
-      careerScore: profile?.careerScore ?? null,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AI_CALL_TIMEOUT_MS);
+    let milestoneResults;
+    try {
+      milestoneResults = await getAICareerService().generateRoadmap({
+        locale,
+        careerTitle,
+        profile: toProfileSnapshot(profile),
+        dna: scoreSnapshot.dna,
+        careerScore: profile?.careerScore ?? null,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const roadmap = await roadmapRepository.replaceForUser(
       userId,

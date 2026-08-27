@@ -21,6 +21,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
+  // No custom logo asset exists yet — the default `favicon.ico` file
+  // convention (src/app/favicon.ico) handles the tab icon on its own; an
+  // explicit `icons` entry pointing at a file that doesn't exist would
+  // override that default with nothing. Add `icons: { icon:
+  // "/brand/profymind-logo.png" }` back once that file is actually in
+  // place — see ProfyMindLogo for the same asset used everywhere else.
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

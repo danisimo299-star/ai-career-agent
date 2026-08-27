@@ -90,6 +90,14 @@ export interface JobSearchResponse {
   results: JobSearchResultItem[];
   hhSearchUrl: string;
   providerName: string;
+  /**
+   * Only set when the primary (city-scoped) search returned zero results —
+   * a same-query check of the wider market, so the empty state can say
+   * something honest and specific ("nothing in Kazan, but 12 nationwide")
+   * instead of a bare "nothing found" (item 25/33 of the market-reality
+   * brief). Never silently substituted into `results` itself.
+   */
+  broaderMarket?: { nationwideCount: number; remoteCount: number };
 }
 
 const HH_EXPERIENCE_RANK: Record<string, number> = {
@@ -153,9 +161,19 @@ async function performSearch(userId: string, query: JobSearchQuery, targetRole: 
     experience: query.experience,
     employmentTypes: query.employmentTypes,
     salaryMin: query.salaryMin,
+    professionalRoleIds: query.professionalRoleIds,
   });
 
-  return { results: sortResults(results, sort), hhSearchUrl, providerName: provider.name };
+  let broaderMarket: JobSearchResponse["broaderMarket"];
+  if (results.length === 0 && query.city) {
+    const [nationwide, remote] = await Promise.all([
+      provider.search({ ...query, city: undefined }),
+      provider.search({ ...query, city: undefined, workFormat: "REMOTE" }),
+    ]);
+    broaderMarket = { nationwideCount: nationwide.length, remoteCount: remote.length };
+  }
+
+  return { results: sortResults(results, sort), hhSearchUrl, providerName: provider.name, broaderMarket };
 }
 
 export const jobsService = {
@@ -171,6 +189,8 @@ export const jobsService = {
         employmentTypes: filters.employmentTypes,
         salaryMin: filters.salaryMin,
         internshipOnly: filters.internshipOnly,
+        professionalRoleIds: filters.professionalRoleIds,
+        page: filters.page,
       },
       filters.targetRole,
       filters.sort
