@@ -84,12 +84,23 @@ function parseJson<T>(raw: string, schema: { parse: (data: unknown) => T }, labe
 
 /**
  * Implements the full `AICareerService` contract generically on top of the
- * low-level `AIProvider.complete()`. Works unchanged whether that provider
- * is OpenAI, Anthropic, or a future Gemini adapter — only `provider.ts`'s
- * factory needs to change to add one, never this file.
+ * low-level `AIProvider.complete()`/`stream()`. Works unchanged whether
+ * either provider is OpenAI, Anthropic, Ollama, Groq, or a future adapter —
+ * only `provider.ts`'s factory needs to change to add one, never this file.
+ *
+ * Two providers, not one: `chatProvider` serves live conversational calls
+ * (Coach streaming, the Career Interview's chat acknowledgement) —
+ * `generationProvider` serves every discrete "Generate ..." product
+ * feature (Career Analysis, Roadmap, Resume, Missions, Interview,
+ * Job Prep). Which concrete provider each one resolves to is controlled by
+ * `AI_CHAT_PROVIDER`/`AI_GENERATION_PROVIDER` in `provider.ts` — this class
+ * never checks an env var or a provider name itself.
  */
 export class LLMCareerService implements AICareerService {
-  constructor(private readonly provider: AIProvider) {}
+  constructor(
+    private readonly chatProvider: AIProvider,
+    private readonly generationProvider: AIProvider
+  ) {}
 
   private async completeJson<T>(
     systemPrompt: string,
@@ -99,7 +110,9 @@ export class LLMCareerService implements AICareerService {
     signal?: AbortSignal,
     maxTokens?: number,
     /** True only for calls that are structurally part of a live Coach chat turn (e.g. the intent/memory classification that runs alongside the streamed reply) — see `AICompletionOptions.skipConcurrencyGate`. Every real "Generate ..." feature leaves this false and queues normally. */
-    skipConcurrencyGate = false
+    skipConcurrencyGate = false,
+    /** Defaults to `generationProvider` — every real "Generate ..." feature. Only `analyzeUser` and the Coach meta-classification call pass `chatProvider` explicitly. */
+    provider: AIProvider = this.generationProvider
   ): Promise<T> {
     const messages: AIMessage[] = [{ role: "system", content: systemPrompt }, ...conversation];
 
@@ -111,8 +124,8 @@ export class LLMCareerService implements AICareerService {
     const conversationChars = conversation.reduce((sum, m) => sum + m.content.length, 0);
 
     const callStart = Date.now();
-    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal, maxTokens, skipConcurrencyGate });
-    const ollamaMs = Date.now() - callStart;
+    const result = await provider.complete(messages, { jsonMode: true, temperature: 0.6, signal, maxTokens, skipConcurrencyGate });
+    const aiMs = Date.now() - callStart;
 
     const parseStart = Date.now();
     try {
@@ -122,9 +135,9 @@ export class LLMCareerService implements AICareerService {
         const parseMs = Date.now() - parseStart;
         const responseChars = result.content.length;
         console.log(
-          `[PERF][ai] ${label} — promptChars=${promptChars} (~${estimateTokens(promptChars)}tok)` +
+          `[PERF][ai] ${label} — provider=${provider.name} promptChars=${promptChars} (~${estimateTokens(promptChars)}tok)` +
             (conversationChars > 0 ? ` conversationChars=${conversationChars} (~${estimateTokens(conversationChars)}tok)` : "") +
-            ` maxTokens=${maxTokens ?? "default(500)"} ollamaMs=${ollamaMs} responseChars=${responseChars} (~${estimateTokens(responseChars)}tok) parseMs=${parseMs}`
+            ` maxTokens=${maxTokens ?? "default(500)"} aiMs=${aiMs} responseChars=${responseChars} (~${estimateTokens(responseChars)}tok) parseMs=${parseMs}`
         );
       }
     }
@@ -132,7 +145,18 @@ export class LLMCareerService implements AICareerService {
 
   async analyzeUser(input: AnalyzeUserInput): Promise<UserAnalysisResult> {
     const conversation: AIMessage[] = input.history.map((turn) => ({ role: turn.role, content: turn.content }));
-    return this.completeJson(buildAnalyzeUserPrompt(input), analyzeUserResponseSchema, "analyzeUser", conversation, input.signal);
+    // Chat provider — this is the Career Interview's live acknowledgement,
+    // not a "Generate ..." feature (see the class-level doc comment).
+    return this.completeJson(
+      buildAnalyzeUserPrompt(input),
+      analyzeUserResponseSchema,
+      "analyzeUser",
+      conversation,
+      input.signal,
+      undefined,
+      false,
+      this.chatProvider
+    );
   }
 
   async generateCareerAnalysis(input: CareerAnalysisContext): Promise<CareerAnalysisResult> {
@@ -238,6 +262,7 @@ export class LLMCareerService implements AICareerService {
     // `skipConcurrencyGate: true` — this call is part of a live chat turn,
     // not a "Generate ..." button, and must never queue behind unrelated
     // heavy generations (see `AICompletionOptions.skipConcurrencyGate`).
+    // Chat provider, same reasoning as `analyzeUser` above.
     const metaPromise = this.completeJson(
       buildCoachMetaPrompt(input),
       coachMetaResponseSchema,
@@ -245,12 +270,13 @@ export class LLMCareerService implements AICareerService {
       [],
       input.signal,
       undefined,
-      true
+      true,
+      this.chatProvider
     );
     metaPromise.catch(() => {});
 
     let content = "";
-    for await (const delta of this.provider.stream(messages, { temperature: 0.7, signal: input.signal })) {
+    for await (const delta of this.chatProvider.stream(messages, { temperature: 0.7, signal: input.signal })) {
       if (!delta) continue;
       content += delta;
       yield { type: "delta", text: delta };

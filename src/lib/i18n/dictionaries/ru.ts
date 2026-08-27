@@ -14,7 +14,7 @@ export const ru: Dictionary = {
     optional: "необязательно",
     retry: "Повторить",
     close: "Закрыть",
-    aiUnavailable: "ProfyMind AI недоступен. Запусти Ollama и попробуй снова.",
+    aiUnavailable: "ProfyMind AI сейчас недоступен. Попробуй снова через минуту.",
     aiBusy: "ProfyMind сейчас обрабатывает другой запрос. Попробуй через минуту.",
   },
   nav: {

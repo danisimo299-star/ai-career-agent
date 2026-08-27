@@ -12,7 +12,7 @@ export const en = {
     optional: "optional",
     retry: "Retry",
     close: "Close",
-    aiUnavailable: "ProfyMind AI is unavailable. Start Ollama and try again.",
+    aiUnavailable: "ProfyMind AI is unavailable right now. Try again in a minute.",
     aiBusy: "ProfyMind is busy with another request right now. Try again in a minute.",
   },
   nav: {

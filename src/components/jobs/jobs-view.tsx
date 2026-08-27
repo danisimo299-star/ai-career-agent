@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { Search as SearchIcon, ExternalLink, Briefcase } from "lucide-react";
@@ -61,7 +61,21 @@ export function JobsView({
   const [broaderMarket, setBroaderMarket] = useState(initialBroaderMarket ?? null);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [resultsFetchedAt, setResultsFetchedAt] = useState<Date | null>(initialResults.length > 0 ? new Date() : null);
+  // `new Date()` can never be the initial value here — the server renders
+  // this same component for the initial HTML, and by the time the client
+  // hydrates (a slow dev compile, or just real time passing), `new Date()`
+  // evaluated fresh on the client no longer matches what the server
+  // embedded, which is exactly the hydration mismatch this used to throw.
+  // Starts `null` on both sides (no mismatch possible), then fills in the
+  // real timestamp once mounted — same pattern as the dashboard's
+  // time-of-day greeting.
+  const [resultsFetchedAt, setResultsFetchedAt] = useState<Date | null>(null);
+  useEffect(() => {
+    if (initialResults.length === 0) return;
+    const id = requestAnimationFrame(() => setResultsFetchedAt(new Date()));
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: reflects the initial results this component was first given, not later re-renders.
+  }, []);
 
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [assistantError, setAssistantError] = useState<string | null>(null);

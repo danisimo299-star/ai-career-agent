@@ -8,7 +8,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  AI_PROVIDER: z.enum(["mock", "openai", "anthropic", "ollama"]).default("mock"),
+  /// The legacy single-provider switch — still the fallback both
+  /// `AI_CHAT_PROVIDER` and `AI_GENERATION_PROVIDER` resolve to when unset,
+  /// and still what `getAICareerService()` checks for the `mock` gate.
+  AI_PROVIDER: z.enum(["mock", "openai", "anthropic", "ollama", "groq"]).default("mock"),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   /// A local Ollama server (see ollama.com) — no API key, since it's not a
@@ -16,6 +19,21 @@ const envSchema = z.object({
   /// (`ollama pull <model>`) before `AI_PROVIDER=ollama` can serve requests.
   OLLAMA_BASE_URL: z.string().url().default("http://127.0.0.1:11434"),
   OLLAMA_MODEL: z.string().optional(),
+  /// Hosted, fast inference (see console.groq.com) — used for heavy
+  /// structured generation (Career Analysis, Roadmap, Resume, Missions,
+  /// Interview, Job Prep) while Chat stays on Ollama. Server-side only:
+  /// never read outside `providers/groq.provider.ts`, never sent to the
+  /// client, never logged.
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default("openai/gpt-oss-20b"),
+  /// Which concrete provider handles live conversational calls (Coach chat
+  /// streaming, the Career Interview's chat acknowledgement) vs. discrete
+  /// "Generate ..." product features — see `getChatProvider()` /
+  /// `getGenerationProvider()` in `provider.ts`. Each falls back to
+  /// `AI_PROVIDER` when unset, so a deployment that only sets `AI_PROVIDER`
+  /// keeps working exactly as before.
+  AI_CHAT_PROVIDER: z.enum(["mock", "openai", "anthropic", "ollama", "groq"]).optional(),
+  AI_GENERATION_PROVIDER: z.enum(["mock", "openai", "anthropic", "ollama", "groq"]).optional(),
   /// Bounded in-process concurrency for heavy (`jsonMode`) generation calls
   /// only — chat streaming is never limited by this. A single local Ollama
   /// process has no queueing of its own worth relying on; this makes the
