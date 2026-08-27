@@ -8,6 +8,7 @@ import { missionsService } from "@/server/services/missions.service";
 import { careerScoreService } from "@/server/services/career-score.service";
 import { initialMilestoneStatuses, nextMilestoneStatusAfterTaskToggle } from "@/lib/career/roadmap-progress";
 import { enrichResources } from "@/lib/career/resource-enrichment";
+import { createTimer } from "@/lib/dev-timing";
 
 class RoadmapAccessError extends Error {
   constructor(message: string) {
@@ -18,13 +19,18 @@ class RoadmapAccessError extends Error {
 
 /**
  * Generous but bounded — a full 6-8 milestone roadmap is a large generation
- * (~3000 output tokens); live-measured on this deployment's local model at
- * 87s for a real, successful generation, so the budget needs real margin
- * above that rather than cutting it close — this only guards against a
- * truly stuck/crashed Ollama process, not the model's real throughput. See
- * `career-analysis.service.ts` for the same reasoning.
+ * (~2700 output tokens live-measured); this deployment's local model needs
+ * ~90-105s of real compute for that, so the budget needs real margin above
+ * that rather than cutting it close — this only guards against a truly
+ * stuck/crashed Ollama process, not the model's real throughput.
+ *
+ * 260s, not ~120s: same reasoning as `career-analysis.service.ts`'s
+ * `AI_CALL_TIMEOUT_MS` — this AbortController starts before
+ * `OllamaProvider`'s bounded-concurrency gate has necessarily granted a
+ * slot, so a request queued behind one other heavy job needs its own full
+ * generation time ON TOP OF up to ~120s of queue wait.
  */
-const AI_CALL_TIMEOUT_MS = 120_000;
+const AI_CALL_TIMEOUT_MS = 260_000;
 
 function toMilestoneInputs(milestones: RoadmapMilestoneResult[]): CreateMilestoneInput[] {
   const statuses = initialMilestoneStatuses(milestones.length);
@@ -49,10 +55,12 @@ function toMilestoneInputs(milestones: RoadmapMilestoneResult[]): CreateMileston
 
 export const roadmapService = {
   async generate(userId: string, careerTitle: string, locale: Locale, careerRecommendationId?: string) {
+    const timer = createTimer("roadmap.generate");
     const [profile, scoreSnapshot] = await Promise.all([
       profileRepository.findByUserId(userId),
       careerScoreService.getSnapshot(userId),
     ]);
+    timer.mark("read");
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), AI_CALL_TIMEOUT_MS);
@@ -69,6 +77,7 @@ export const roadmapService = {
     } finally {
       clearTimeout(timeout);
     }
+    timer.mark("ai");
 
     const roadmap = await roadmapRepository.replaceForUser(
       userId,
@@ -76,8 +85,11 @@ export const roadmapService = {
       toMilestoneInputs(milestoneResults),
       careerRecommendationId
     );
+    timer.mark("save");
 
     await Promise.all([missionsService.sync(userId), careerScoreService.getSnapshot(userId)]);
+    timer.mark("missions+score");
+    timer.done();
 
     return roadmap;
   },

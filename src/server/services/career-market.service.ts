@@ -115,11 +115,17 @@ export async function validateCareerMarket(
 
   devLog("  resolved HH role:", role.role.name, `(id=${role.role.id}, score=${role.score.toFixed(2)}, exact=${role.exact})`);
 
-  const areaId = await resolveAreaIdLive(city);
   const stages = buildCascade(role, candidate);
 
-  const cityResult = city ? await runCascade(stages, city, experience) : { matchedStage: null, count: null, sawOk: false };
-  const russiaResult = await runCascade(stages, null, experience);
+  // The city cascade and the nationwide cascade are independent HH lookups —
+  // running them one after another (`await` then `await`) doubled this
+  // candidate's network wait for no reason; `resolveAreaIdLive` is also
+  // independent of both, so all three go out together.
+  const [areaId, cityResult, russiaResult] = await Promise.all([
+    resolveAreaIdLive(city),
+    city ? runCascade(stages, city, experience) : Promise.resolve({ matchedStage: null, count: null, sawOk: false }),
+    runCascade(stages, null, experience),
+  ]);
 
   devLog("  city:", city ?? "—", "vacancies:", cityResult.count, "| Russia vacancies:", russiaResult.count);
 

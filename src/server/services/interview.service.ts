@@ -10,6 +10,7 @@ import { careerScoreService } from "@/server/services/career-score.service";
 import { missionsService } from "@/server/services/missions.service";
 import type { InterviewSetupContext, InterviewTurn, InterviewScoreBreakdown, ExperienceLevel } from "@/lib/ai/career/types";
 import { isResumeContentMeaningful, type ResumeContent } from "@/types";
+import { createTimer } from "@/lib/dev-timing";
 
 /**
  * `session.experienceLevel` comes back from Prisma typed with its full
@@ -103,9 +104,12 @@ export const interviewService = {
     locale: Locale,
     setup: { targetRole: string; interviewType: InterviewType; difficulty: DifficultyLevel; experienceLevel: ExperienceLevel; questionCount: number }
   ) {
+    const timer = createTimer("interview.startSession");
     const context = await loadSetupContext(userId, locale, { ...setup, targetQuestionCount: setup.questionCount });
+    timer.mark("read+context");
 
     const firstQuestion = await getAICareerService().generateInterviewQuestion({ ...context, history: [] });
+    timer.mark("ai");
 
     const session = await interviewRepository.create(userId, {
       targetRole: setup.targetRole,
@@ -121,6 +125,8 @@ export const interviewService = {
       isFollowUp: false,
       question: firstQuestion.question,
     });
+    timer.mark("save");
+    timer.done();
 
     return interviewRepository.findById(session.id);
   },
@@ -136,6 +142,7 @@ export const interviewService = {
   },
 
   async submitAnswer(userId: string, questionId: string, answer: string, locale: Locale) {
+    const timer = createTimer("interview.submitAnswer");
     const question = await interviewRepository.findQuestionById(questionId);
     if (!question || question.session.userId !== userId) throw new InterviewAccessError("not_found");
     if (question.session.status !== "IN_PROGRESS") throw new InterviewAccessError("session_finished");
@@ -152,6 +159,7 @@ export const interviewService = {
 
     const priorQuestions = (await interviewRepository.findById(session.id))!.questions.filter((q) => q.id !== questionId);
     const history = priorQuestions.map(toTurn).filter((t): t is InterviewTurn => t !== null);
+    timer.mark("read+context");
 
     const currentQuestion = {
       question: question.question,
@@ -166,6 +174,7 @@ export const interviewService = {
       currentQuestion,
       answer,
     });
+    timer.mark("ai-evaluate");
 
     await interviewRepository.recordAnswer(questionId, {
       userAnswer: answer,
@@ -193,11 +202,14 @@ export const interviewService = {
         isFollowUp: true,
         question: evaluation.followUpQuestion,
       });
+      timer.mark("save");
+      timer.done();
       return interviewRepository.findById(session.id);
     }
 
     if (askedSoFar < session.questionCount) {
       const next = await getAICareerService().generateInterviewQuestion({ ...context, history: fullHistory });
+      timer.mark("ai-nextQuestion");
       await interviewRepository.addQuestion(session.id, {
         order: priorQuestions.length + 1,
         type: next.type,
@@ -205,15 +217,24 @@ export const interviewService = {
         isFollowUp: false,
         question: next.question,
       });
+      timer.mark("save");
+      timer.done();
       return interviewRepository.findById(session.id);
     }
 
+    timer.mark("save");
+    timer.done();
+    // Last question answered — chains straight into the report generation
+    // (its own [PERF] timer below), a second, necessarily sequential AI call
+    // since the report depends on this answer's evaluation being recorded.
     return interviewService.finishSession(userId, session.id, locale);
   },
 
   async finishSession(userId: string, sessionId: string, locale: Locale) {
+    const timer = createTimer("interview.finishSession");
     const session = await interviewRepository.findById(sessionId);
     if (!session || session.userId !== userId) throw new InterviewAccessError("not_found");
+    timer.mark("read");
 
     const report = await getAICareerService().generateInterviewReport({
       locale,
@@ -228,9 +249,12 @@ export const interviewService = {
         })
         .filter((t): t is InterviewTurn & { score: number | null; scoreBreakdown: InterviewScoreBreakdown | null } => t !== null),
     });
+    timer.mark("ai");
 
     const finished = await interviewRepository.finish(sessionId, report);
     await Promise.all([missionsService.sync(userId), careerScoreService.getSnapshot(userId)]);
+    timer.mark("save");
+    timer.done();
     return finished;
   },
 };

@@ -47,8 +47,36 @@ const MIN_ACCEPTED_RECOMMENDATIONS = 3;
  * `career-analysis-view.tsx`) is what actually keeps this from feeling like
  * a hang either way — the user sees a real loading state throughout and the
  * result appears on its own, never requiring a manual refresh.
+ *
+ * 220s, not ~70s: this AbortController starts counting the moment the call
+ * is made, before `OllamaProvider`'s bounded-concurrency gate (see
+ * `lib/ai/concurrency.ts`) has necessarily granted it a slot — a request
+ * that has to queue behind one other heavy generation needs its own
+ * ~70s generation time ON TOP OF up to ~120s of queue wait. Caught live:
+ * with the gate's queue-wait cap sized correctly but this deadline left at
+ * the old un-queued 90s, a queued request could get a slot, start
+ * generating, and still hit THIS timeout before finishing — a real bug, not
+ * a hypothetical one.
  */
-const AI_CALL_TIMEOUT_MS = 90_000;
+const AI_CALL_TIMEOUT_MS = 220_000;
+
+/**
+ * A second click (or a second tab, or a retried request) while a generation
+ * is already running server-side must never start a second, fully-redundant
+ * Ollama+HH pipeline for the same user — scoped to this one user's
+ * `Profile` row, never a global lock. Bounded by staleness so a process
+ * that crashed mid-generation doesn't leave the user permanently unable to
+ * regenerate: past `STALE_LOCK_MS` a "PROCESSING" row is treated as dead,
+ * not actually in flight.
+ */
+const STALE_LOCK_MS = AI_CALL_TIMEOUT_MS * 3;
+
+export class CareerAnalysisAlreadyProcessingError extends Error {
+  constructor() {
+    super("career_analysis_already_processing");
+    this.name = "CareerAnalysisAlreadyProcessingError";
+  }
+}
 
 type ValidatedCandidate = CareerRecommendationResult & Omit<MarketValidation, "accepted">;
 
@@ -123,13 +151,31 @@ function rankCandidates(candidates: ValidatedCandidate[], openToRemote: boolean)
   return [...candidates].sort((a, b) => tier(a) - tier(b) || b.matchScore - a.matchScore);
 }
 
+/**
+ * Wins this user's generation lock or throws — a single atomic `updateMany`
+ * (see `tryClaimCareerAnalysisLock`), not a read-then-write, so two
+ * simultaneous requests for the same user can never both proceed (verified
+ * live: a naive check-then-set version let a concurrent second request
+ * start a real second Ollama+HH pipeline before either had written
+ * PROCESSING). Falls back to creating the row on the rare pre-onboarding
+ * path where it doesn't exist yet at all.
+ */
+async function claimGenerationLockOrThrow(userId: string) {
+  const claimed = await profileRepository.tryClaimCareerAnalysisLock(userId, new Date(Date.now() - STALE_LOCK_MS));
+  if (claimed) return;
+
+  const current = await profileRepository.findByUserId(userId);
+  if (current) throw new CareerAnalysisAlreadyProcessingError();
+  await profileRepository.upsert(userId, { careerAnalysisStatus: "PROCESSING", careerAnalysisStartedAt: new Date(), careerAnalysisError: null });
+}
+
 export const careerAnalysisService = {
   async analyze(userId: string, locale: Locale) {
     const timer = createTimer("careerAnalysis.analyze");
     // Persisted status (item 29 of the performance brief) — a page refresh
     // mid-generation reads this instead of getting nothing, and never needs
     // to depend on the original fetch ever reaching the tab that started it.
-    await profileRepository.upsert(userId, { careerAnalysisStatus: "PROCESSING", careerAnalysisStartedAt: new Date(), careerAnalysisError: null });
+    await claimGenerationLockOrThrow(userId);
 
     try {
       const profile = await profileRepository.findByUserId(userId);
@@ -183,7 +229,7 @@ export const careerAnalysisService = {
    */
   async findMore(userId: string, locale: Locale) {
     const timer = createTimer("careerAnalysis.findMore");
-    await profileRepository.upsert(userId, { careerAnalysisStatus: "PROCESSING", careerAnalysisStartedAt: new Date(), careerAnalysisError: null });
+    await claimGenerationLockOrThrow(userId);
 
     try {
       const [profile, existing] = await Promise.all([profileRepository.findByUserId(userId), careerRepository.listByUser(userId)]);

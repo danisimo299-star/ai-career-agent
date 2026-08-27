@@ -25,7 +25,11 @@ export class CareerMissionAccessError extends Error {
 const MISSIONS_PER_DAY = 5;
 const HISTORY_DAYS = 7;
 const STREAK_LOOKBACK_DAYS = 60;
-const AI_CALL_TIMEOUT_MS = 120_000;
+// 220s, not 120s — this AbortController starts before `OllamaProvider`'s
+// bounded-concurrency gate has necessarily granted a slot, so a request
+// queued behind one other heavy job needs its own generation time ON TOP OF
+// up to ~120s of queue wait (see `career-analysis.service.ts`).
+const AI_CALL_TIMEOUT_MS = 220_000;
 
 /**
  * Server-side "today," date-only, UTC. This project has no per-user

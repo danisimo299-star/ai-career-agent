@@ -11,6 +11,7 @@ import { careerScoreService } from "@/server/services/career-score.service";
 import { missionsService } from "@/server/services/missions.service";
 import { emptyResumeContent, type ResumeContent } from "@/types";
 import type { ResumeSectionContext } from "@/lib/ai/career/types";
+import { createTimer } from "@/lib/dev-timing";
 
 export class ResumeAccessError extends Error {
   constructor(message: string) {
@@ -77,8 +78,13 @@ export const resumeService = {
 
   /** Suggested draft (career objective, summary, skills) for a mostly-empty resume — never saved automatically, the caller merges it into the edit form for the user to review. */
   async generateDraft(userId: string, targetRole: string, locale: Locale) {
+    const timer = createTimer("resume.generateDraft");
     const context = await loadGenerationContext(userId, targetRole, locale);
-    return getAICareerService().generateResume(context);
+    timer.mark("read+context");
+    const draft = await getAICareerService().generateResume(context);
+    timer.mark("ai");
+    timer.done();
+    return draft;
   },
 
   async generateSection(

@@ -31,6 +31,29 @@ export const profileRepository = {
   },
 
   /**
+   * Atomic claim for the Career Analysis generation lock — succeeds (returns
+   * true) only if no other request already holds it, or the lock has gone
+   * stale (a crashed process never cleared it). A plain check-then-write
+   * (read status, then upsert) has a race window between the two steps —
+   * two simultaneous requests can both read "not processing" before either
+   * writes — so this is one conditional `updateMany`, mirroring
+   * `updateWithVersionCheck`'s optimistic-concurrency pattern above; `count
+   * > 0` means this call won the lock, `count === 0` means someone else
+   * already holds it (or the row doesn't exist yet — the caller
+   * disambiguates with a follow-up read).
+   */
+  async tryClaimCareerAnalysisLock(userId: string, staleBefore: Date, db: DbClient = prisma) {
+    const result = await db.profile.updateMany({
+      where: {
+        userId,
+        OR: [{ careerAnalysisStatus: { not: "PROCESSING" } }, { careerAnalysisStartedAt: null }, { careerAnalysisStartedAt: { lt: staleBefore } }],
+      },
+      data: { careerAnalysisStatus: "PROCESSING", careerAnalysisStartedAt: new Date(), careerAnalysisError: null },
+    });
+    return result.count > 0;
+  },
+
+  /**
    * "Delete my career profile" (Settings → Data & Privacy) — resets what the
    * Career Interview and AI analysis built up, not the account itself:
    * onboarding's own fields (name, age, city, educationStage) and

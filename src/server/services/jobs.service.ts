@@ -16,6 +16,7 @@ import { compareSkills } from "@/lib/career/skill-normalization";
 import { getAICareerService } from "@/lib/ai/career/get-career-service";
 import type { JobRecommendationDTO, ResumeContent } from "@/types";
 import type { JobSearchFiltersInput, JobPreferencesInput, SaveJobInput } from "@/lib/validation/job.schema";
+import { createTimer } from "@/lib/dev-timing";
 
 export class JobAccessError extends Error {
   constructor(message: string) {
@@ -272,11 +273,13 @@ export const jobsService = {
   },
 
   async prepareForJob(userId: string, locale: Locale, vacancy: { title: string; company: string; requiredSkills: string[] }) {
+    const timer = createTimer("jobs.prepareForJob");
     const [profile, roadmap, resumes] = await Promise.all([
       profileRepository.findByUserId(userId),
       roadmapRepository.findByUser(userId),
       resumeRepository.listByUser(userId),
     ]);
+    timer.mark("read");
 
     const resumeContent = (resumes[0]?.content as unknown as ResumeContent | undefined) ?? null;
     const userSkills = [...(profile?.skills ?? []), ...(resumeContent?.skills ?? [])];
@@ -292,6 +295,7 @@ export const jobsService = {
       missingSkills: missing,
       resumeSummary: resumeContent?.summary?.trim() || null,
     });
+    timer.mark("ai");
 
     const resumeMatch = resumeContent
       ? computeResumeVacancyMatch(
@@ -300,6 +304,7 @@ export const jobsService = {
           vacancy.requiredSkills
         )
       : null;
+    timer.done();
 
     return { plan, matchedSkills: matched, missingSkills: missing, resumeMatch };
   },

@@ -24,7 +24,7 @@ interface RoadmapViewProps {
   recommendedCareers: string[];
 }
 
-type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "invalid_input" | null;
+type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "ai_busy" | "invalid_input" | null;
 
 export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle, recommendedCareers }: RoadmapViewProps) {
   const { dict } = useLocale();
@@ -43,6 +43,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
   const errorMessage = (kind: ErrorKind) => {
     if (kind === "ai_invalid_response") return page.errorAiInvalid;
     if (kind === "ai_unavailable") return dict.common.aiUnavailable;
+    if (kind === "ai_busy") return dict.common.aiBusy;
     if (kind === "invalid_input") return page.errorGeneration;
     return page.errorGeneration;
   };

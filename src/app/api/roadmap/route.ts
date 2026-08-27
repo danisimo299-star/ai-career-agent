@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { roadmapService } from "@/server/services/roadmap.service";
 import { AIProviderUnavailableError } from "@/lib/errors";
+import { AICapacityError } from "@/lib/ai/concurrency";
 
 const generateSchema = z.object({
   careerTitle: z.string().trim().min(1).max(200),
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       console.error("roadmap.generate: AI response failed validation", error.flatten());
       return NextResponse.json({ error: "ai_invalid_response" }, { status: 502 });
+    }
+    if (error instanceof AICapacityError) {
+      return NextResponse.json({ error: "ai_busy" }, { status: 503 });
     }
     if (error instanceof AIProviderUnavailableError) {
       console.error("roadmap.generate: AI provider unavailable", error);

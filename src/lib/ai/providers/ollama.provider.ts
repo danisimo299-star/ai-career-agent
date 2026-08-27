@@ -1,11 +1,34 @@
 import { AIProviderUnavailableError } from "@/lib/errors";
+import { env } from "@/lib/env";
+import { BoundedConcurrency } from "../concurrency";
 import type { AICompletionOptions, AICompletionResult, AIMessage, AIProvider } from "../types";
+
+// Module-level (one process, one local Ollama server) — every `OllamaProvider`
+// instance shares the same gate, since `getAIProvider()` already caches a
+// single instance anyway, but this is correct even if that ever changes.
+// 120s queue-wait cap: comfortably above the slowest single generation
+// measured live on this deployment (Roadmap, ~87-102s) so a request queued
+// behind exactly one other heavy job still gets its turn; a longer wait
+// means the queue is genuinely backed up, not just "unlucky timing".
+const generationGate = new BoundedConcurrency(env.AI_MAX_CONCURRENT_GENERATIONS, 120_000);
 
 interface OllamaChatResponse {
   model: string;
   message: { role: string; content: string };
   done: boolean;
 }
+
+/**
+ * Ollama's own default `keep_alive` is 5 minutes — plenty for one Chat turn,
+ * but shorter than the time a user often spends filling out a form between
+ * "Generate" clicks (an onboarding step, reading a roadmap, editing a
+ * resume). Once the model unloads, the *next* request pays a real reload
+ * cost on top of its own generation time — live-measured on this deployment
+ * at ~5s, small next to a ~50-100s generation but still pure waste. 30
+ * minutes keeps the model resident across a normal session without holding
+ * it in memory indefinitely on a genuinely idle server.
+ */
+const KEEP_ALIVE = "30m";
 
 async function ollamaFetch(baseUrl: string, path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
   let response: Response;
@@ -50,43 +73,63 @@ export class OllamaProvider implements AIProvider {
   ) {}
 
   async complete(messages: AIMessage[], options?: AICompletionOptions): Promise<AICompletionResult> {
-    const response = await ollamaFetch(
-      this.baseUrl,
-      "/api/chat",
-      {
-        model: this.model,
-        messages,
-        stream: false,
-        // A reasoning-capable local model (e.g. Qwen3) defaults to emitting a
-        // long internal "thinking" trace before the real answer — harmless
-        // for correctness (it's returned in a separate `message.thinking`
-        // field this provider never reads) but it turned a trivial reply into
-        // a 50+ second wait in testing. Coach replies need to feel like a
-        // live conversation, not a reasoning benchmark, so thinking is off.
-        think: false,
-        format: options?.jsonMode ? "json" : undefined,
-        // Structured product-analysis calls ask for a few short sentences
-        // per field, never an essay — bounding `num_predict` stops a local
-        // model from wandering into a much longer generation than the
-        // response actually needs, which was a direct contributor to the
-        // multi-second-to-a-minute Career Analysis latency (num_ctx large
-        // enough to hold the whole prompt + conversation history without
-        // Ollama silently truncating older turns).
-        options: { temperature: options?.temperature ?? 0.7, num_predict: options?.maxTokens ?? 500, num_ctx: 8192 },
-      },
-      options?.signal
-    );
+    const run = async () => {
+      const response = await ollamaFetch(
+        this.baseUrl,
+        "/api/chat",
+        {
+          model: this.model,
+          messages,
+          stream: false,
+          keep_alive: KEEP_ALIVE,
+          // A reasoning-capable local model (e.g. Qwen3) defaults to emitting a
+          // long internal "thinking" trace before the real answer — harmless
+          // for correctness (it's returned in a separate `message.thinking`
+          // field this provider never reads) but it turned a trivial reply into
+          // a 50+ second wait in testing. See `AICompletionMode` — every call
+          // site in this app is "fast" (the default) today; `think` only
+          // turns on if a caller explicitly asks for `mode: "deep"`.
+          think: options?.mode === "deep",
+          format: options?.jsonMode ? "json" : undefined,
+          // Structured product-analysis calls ask for a few short sentences
+          // per field, never an essay — bounding `num_predict` stops a local
+          // model from wandering into a much longer generation than the
+          // response actually needs, which was a direct contributor to the
+          // multi-second-to-a-minute Career Analysis latency (num_ctx large
+          // enough to hold the whole prompt + conversation history without
+          // Ollama silently truncating older turns).
+          options: { temperature: options?.temperature ?? 0.7, num_predict: options?.maxTokens ?? 500, num_ctx: 8192 },
+        },
+        options?.signal
+      );
 
-    const data = (await response.json()) as OllamaChatResponse;
+      const data = (await response.json()) as OllamaChatResponse;
 
-    return {
-      content: data.message?.content ?? "",
-      provider: this.name,
-      model: data.model,
+      return {
+        content: data.message?.content ?? "",
+        provider: this.name,
+        model: data.model,
+      };
     };
+
+    // Bounded (item 28/29 of the performance brief): every real product
+    // generation (Career Analysis, Roadmap, Resume, ...) queues here so a
+    // single local Ollama process never receives more heavy requests at
+    // once than it can actually make progress on. `skipConcurrencyGate` is
+    // the one deliberate exception — Coach's intent/memory classification
+    // uses `complete()` too, but it's part of a live chat turn, not a
+    // "generate" button; it must never wait behind a queue of unrelated
+    // heavy generations (verified live: without this, a busy queue visibly
+    // delayed chat's suggested-actions, which item 6 explicitly forbids).
+    if (options?.skipConcurrencyGate) return run();
+    return generationGate.run(run);
   }
 
   async *stream(messages: AIMessage[], options?: Omit<AICompletionOptions, "jsonMode">): AsyncIterable<string> {
+    // Chat is explicitly out of scope for this pass — this keeps its exact
+    // prior behavior (thinking always off) since no chat call site passes
+    // `mode`, it's just expressed through the same `AICompletionMode`
+    // mechanism as `complete()` instead of a second hardcoded `false`.
     const response = await ollamaFetch(
       this.baseUrl,
       "/api/chat",
@@ -94,7 +137,8 @@ export class OllamaProvider implements AIProvider {
         model: this.model,
         messages,
         stream: true,
-        think: false,
+        keep_alive: KEEP_ALIVE,
+        think: options?.mode === "deep",
         options: { temperature: options?.temperature ?? 0.7 },
       },
       options?.signal

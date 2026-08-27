@@ -60,6 +60,11 @@ import type {
   CoachStreamEvent,
 } from "./types";
 
+/** Rough chars→tokens heuristic (≈4 chars/token for mixed EN/RU text) — good enough for a relative sense of prompt/response size in dev logs, never claimed as exact. */
+function estimateTokens(chars: number): number {
+  return Math.round(chars / 4);
+}
+
 function parseJson<T>(raw: string, schema: { parse: (data: unknown) => T }, label: string): T {
   let data: unknown;
   try {
@@ -92,11 +97,37 @@ export class LLMCareerService implements AICareerService {
     label: string,
     conversation: AIMessage[] = [],
     signal?: AbortSignal,
-    maxTokens?: number
+    maxTokens?: number,
+    /** True only for calls that are structurally part of a live Coach chat turn (e.g. the intent/memory classification that runs alongside the streamed reply) — see `AICompletionOptions.skipConcurrencyGate`. Every real "Generate ..." feature leaves this false and queues normally. */
+    skipConcurrencyGate = false
   ): Promise<T> {
     const messages: AIMessage[] = [{ role: "system", content: systemPrompt }, ...conversation];
-    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal, maxTokens });
-    return parseJson(result.content, schema, label);
+
+    // [PERF] Every product-generation call funnels through this one method,
+    // so instrumenting it here covers Career Analysis / Roadmap / Resume /
+    // Missions / Interview / Job Prep for free — never scattered per route.
+    // Dev-only, never logs prompt or response content, only sizes/durations.
+    const promptChars = systemPrompt.length;
+    const conversationChars = conversation.reduce((sum, m) => sum + m.content.length, 0);
+
+    const callStart = Date.now();
+    const result = await this.provider.complete(messages, { jsonMode: true, temperature: 0.6, signal, maxTokens, skipConcurrencyGate });
+    const ollamaMs = Date.now() - callStart;
+
+    const parseStart = Date.now();
+    try {
+      return parseJson(result.content, schema, label);
+    } finally {
+      if (process.env.NODE_ENV !== "production") {
+        const parseMs = Date.now() - parseStart;
+        const responseChars = result.content.length;
+        console.log(
+          `[PERF][ai] ${label} — promptChars=${promptChars} (~${estimateTokens(promptChars)}tok)` +
+            (conversationChars > 0 ? ` conversationChars=${conversationChars} (~${estimateTokens(conversationChars)}tok)` : "") +
+            ` maxTokens=${maxTokens ?? "default(500)"} ollamaMs=${ollamaMs} responseChars=${responseChars} (~${estimateTokens(responseChars)}tok) parseMs=${parseMs}`
+        );
+      }
+    }
   }
 
   async analyzeUser(input: AnalyzeUserInput): Promise<UserAnalysisResult> {
@@ -204,7 +235,18 @@ export class LLMCareerService implements AICareerService {
     // rejection isn't "unhandled" if the stream loop below throws first and
     // this promise is never awaited — the real error is still surfaced via
     // `await metaPromise` on the line that actually needs its result.
-    const metaPromise = this.completeJson(buildCoachMetaPrompt(input), coachMetaResponseSchema, "streamCoachReply.meta", [], input.signal);
+    // `skipConcurrencyGate: true` — this call is part of a live chat turn,
+    // not a "Generate ..." button, and must never queue behind unrelated
+    // heavy generations (see `AICompletionOptions.skipConcurrencyGate`).
+    const metaPromise = this.completeJson(
+      buildCoachMetaPrompt(input),
+      coachMetaResponseSchema,
+      "streamCoachReply.meta",
+      [],
+      input.signal,
+      undefined,
+      true
+    );
     metaPromise.catch(() => {});
 
     let content = "";

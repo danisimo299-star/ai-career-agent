@@ -28,7 +28,16 @@ interface CareerAnalysisViewProps {
 }
 
 const POLL_INTERVAL_MS = 2500;
-const MAX_POLLS = 40; // ~100s safety net — generous, but bounded (item 6/30: never wait forever)
+// ~300s safety net — generous, but bounded (item 6/30: never wait forever).
+// Must stay comfortably above the backend's own worst-case deadline
+// (`career-analysis.service.ts`'s `AI_CALL_TIMEOUT_MS`, 220s — sized to
+// cover a request that has to queue behind another heavy generation before
+// it even starts). A shorter window here was the actual bug: this poll gave
+// up and reported FAILED while the real generation was still legitimately
+// running server-side, so the only way to see the finished result was to
+// leave and come back to the page (a fresh load reads the real DB status,
+// which the poll should have caught but stopped checking too soon).
+const MAX_POLLS = 120;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -103,9 +112,22 @@ export function CareerAnalysisView({
     setStatus("PROCESSING");
     try {
       const response = await fetch("/api/career-analysis", { method: "POST" });
+      if (response.status === 409) {
+        // Not a failure — this user's own generation is already running
+        // (a double-click, a second tab, a retried request); watch the one
+        // that's actually in flight instead of starting a redundant AI call.
+        await pollUntilDone();
+        return;
+      }
       if (!response.ok) {
         const body = await response.json().catch(() => ({ error: "generic" }));
-        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.auth.register.errors.generic);
+        toast.error(
+          body.error === "ai_unavailable"
+            ? dict.common.aiUnavailable
+            : body.error === "ai_busy"
+              ? dict.common.aiBusy
+              : dict.auth.register.errors.generic
+        );
         setStatus("FAILED");
         return;
       }
@@ -119,14 +141,33 @@ export function CareerAnalysisView({
     }
   };
 
-  /** "Показать ещё варианты" — adds a few more validated professions without discarding what's already shown (unlike Regenerate, which replaces everything). */
+  /**
+   * "Показать ещё варианты" — adds a few more validated professions without
+   * discarding what's already shown (unlike Regenerate, which replaces
+   * everything). Same recovery story as `generate()` above: a slow AI call
+   * (or a network hiccup on this fetch) used to just show an error and give
+   * up while the backend kept working — the new recommendations only ever
+   * showed up if the user happened to leave and reload the page. Falls back
+   * to the same `pollUntilDone()` (it reads the persisted status and full
+   * recommendation list, which is exactly what this action also produces).
+   */
   const findMore = async () => {
     setFindingMore(true);
     try {
       const response = await fetch("/api/career-analysis/more", { method: "POST" });
+      if (response.status === 409) {
+        await pollUntilDone();
+        return;
+      }
       if (!response.ok) {
         const body = await response.json().catch(() => ({ error: "generic" }));
-        toast.error(body.error === "ai_unavailable" ? dict.common.aiUnavailable : dict.auth.register.errors.generic);
+        toast.error(
+          body.error === "ai_unavailable"
+            ? dict.common.aiUnavailable
+            : body.error === "ai_busy"
+              ? dict.common.aiBusy
+              : dict.auth.register.errors.generic
+        );
         return;
       }
       const data = (await response.json()) as { allRecommendations: RecommendationData[] };
@@ -135,7 +176,10 @@ export function CareerAnalysisView({
         toast(page.noMoreOptions);
       }
     } catch {
-      toast.error(dict.auth.register.errors.generic);
+      // The fetch itself failed/timed out client-side — the backend may
+      // still be working (status is DB-persisted), so fall back to polling
+      // rather than immediately declaring failure.
+      await pollUntilDone();
     } finally {
       setFindingMore(false);
     }

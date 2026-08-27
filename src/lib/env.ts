@@ -16,6 +16,18 @@ const envSchema = z.object({
   /// (`ollama pull <model>`) before `AI_PROVIDER=ollama` can serve requests.
   OLLAMA_BASE_URL: z.string().url().default("http://127.0.0.1:11434"),
   OLLAMA_MODEL: z.string().optional(),
+  /// Bounded in-process concurrency for heavy (`jsonMode`) generation calls
+  /// only — chat streaming is never limited by this. A single local Ollama
+  /// process has no queueing of its own worth relying on; this makes the
+  /// queue explicit and adjustable instead of letting concurrent requests
+  /// silently stack up inside Ollama. Default is 1, not a guess: live-tested
+  /// at 2 on this deployment's actual hardware (4B model, no dedicated GPU),
+  /// two concurrent heavy generations roughly doubled each one's wall time
+  /// and pushed Career Analysis past its own 90s abort timeout — running
+  /// them one at a time (queued, not dropped) is strictly better on this
+  /// hardware than letting both degrade together. Safe to raise for a
+  /// hosted/GPU provider later — see `src/lib/ai/concurrency.ts`.
+  AI_MAX_CONCURRENT_GENERATIONS: z.coerce.number().int().positive().default(1),
 
   JOBS_PROVIDER: z.enum(["mock", "hh"]).default("mock"),
   /// Optional HH.ru OAuth access token (see dev.hh.ru — requires a
