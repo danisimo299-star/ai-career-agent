@@ -2,10 +2,32 @@ import { z } from "zod";
 
 const AI_PROVIDER_NAMES = ["mock", "openai", "anthropic", "ollama", "groq"] as const;
 
+/**
+ * A `.env` FILE's quotes (`NEXTAUTH_URL="https://..."`) get stripped by
+ * dotenv-style parsers before the value ever reaches `process.env` — but a
+ * hosting platform's dashboard env-var UI (Vercel included) has no such
+ * parser: it stores exactly the characters typed into the field. Pasting a
+ * shell/`.env`-quoted value there (an easy habit to carry over) leaves the
+ * quote characters IN the string, which `new URL()`/Zod's `.url()` then
+ * correctly rejects — a perfectly valid URL fails only because of the
+ * literal `"` characters wrapped around it. Reproduced directly: confirmed
+ * whitespace/newlines are already tolerated by `.url()`, only the
+ * surrounding-quotes case actually fails it. Trimming + removing one
+ * matching pair of surrounding quotes before validation makes this specific
+ * copy-paste mistake harmless instead of a hard build failure — applied only
+ * to `NEXTAUTH_URL`, where this was actually observed.
+ */
+function cleanEnvUrlValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  const isWrappedInMatchingQuotes = trimmed.length >= 2 && ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")));
+  return isWrappedInMatchingQuotes ? trimmed.slice(1, -1) : trimmed;
+}
+
 const baseEnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
   NEXTAUTH_SECRET: z.string().min(1),
-  NEXTAUTH_URL: z.string().url().optional(),
+  NEXTAUTH_URL: z.preprocess(cleanEnvUrlValue, z.string().url().optional()),
 
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
