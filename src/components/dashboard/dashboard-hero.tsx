@@ -11,16 +11,43 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { JOURNEY_STAGE_HREF, type JourneyStageKey } from "@/lib/career/journey";
 import type { ScoreStrengthKey, ScoreMissingKey } from "@/lib/career/score";
 
+/**
+ * 05:00–11:59 morning · 12:00–17:59 afternoon · 18:00–22:59 evening ·
+ * 23:00–04:59 night. Always the browser's own local clock (`Date` reads
+ * the device's local timezone by construction — never the server's, never
+ * hardcoded to Moscow).
+ */
+function greetingKeyForHour(hour: number): "morning" | "afternoon" | "evening" | "night" {
+  if (hour >= 5 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 18) return "afternoon";
+  if (hour >= 18 && hour < 23) return "evening";
+  return "night";
+}
+
 /** Starts with the time-agnostic fallback for the first paint (avoids an SSR/client hydration mismatch, since the server doesn't know the user's local hour), then swaps to the real time-of-day greeting once mounted. */
 function useTimeOfDayGreeting(dict: Dictionary, userName?: string | null): string {
   const [hour, setHour] = useState<number | null>(null);
+
   useEffect(() => {
-    const id = requestAnimationFrame(() => setHour(new Date().getHours()));
-    return () => cancelAnimationFrame(id);
+    const readHour = () => setHour(new Date().getHours());
+    const id = requestAnimationFrame(readHour);
+
+    // A dashboard tab can sit open across a time-of-day boundary (opened in
+    // the morning, still open that evening) — re-read the clock whenever
+    // the tab becomes visible again, not on a running interval.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") readHour();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   const g = dict.dashboard.greeting;
-  const template = hour === null ? g.fallback : hour < 12 ? g.morning : hour < 18 ? g.afternoon : g.evening;
+  const template = hour === null ? g.fallback : g[greetingKeyForHour(hour)];
   return userName ? template.replace("{name}", userName) : template.replace(/,?\s*\{name\}/, "");
 }
 

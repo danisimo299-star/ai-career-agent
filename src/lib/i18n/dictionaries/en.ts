@@ -238,6 +238,7 @@ export const en = {
       morning: "Good morning, {name}",
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
+      night: "Good night, {name}",
       fallback: "Welcome back, {name}",
       subtitle: "Let's move your career forward.",
     },

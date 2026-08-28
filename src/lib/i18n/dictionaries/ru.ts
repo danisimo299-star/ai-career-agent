@@ -240,6 +240,7 @@ export const ru: Dictionary = {
       morning: "Доброе утро, {name}",
       afternoon: "Добрый день, {name}",
       evening: "Добрый вечер, {name}",
+      night: "Доброй ночи, {name}",
       fallback: "С возвращением, {name}",
       subtitle: "Двигаем твою карьеру вперёд.",
     },
