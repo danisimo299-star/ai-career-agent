@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -70,7 +71,13 @@ export function RegisterForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{dict.auth.register.password}</Label>
-            <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+            <PasswordInput
+              id="password"
+              autoComplete="new-password"
+              showLabel={dict.common.showPassword}
+              hideLabel={dict.common.hidePassword}
+              {...register("password")}
+            />
             {errors.password ? (
               <p className="text-destructive text-sm">{dict.auth.register.errors.weakPassword}</p>
             ) : (

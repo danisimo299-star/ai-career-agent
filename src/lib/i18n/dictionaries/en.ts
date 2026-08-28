@@ -14,6 +14,8 @@ export const en = {
     close: "Close",
     aiUnavailable: "ProfyMind AI is unavailable right now. Try again in a minute.",
     aiBusy: "ProfyMind is busy with another request right now. Try again in a minute.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
   },
   nav: {
     dashboard: "Home",

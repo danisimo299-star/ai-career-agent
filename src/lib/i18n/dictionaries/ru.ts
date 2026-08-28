@@ -16,6 +16,8 @@ export const ru: Dictionary = {
     close: "Закрыть",
     aiUnavailable: "ProfyMind AI сейчас недоступен. Попробуй снова через минуту.",
     aiBusy: "ProfyMind сейчас обрабатывает другой запрос. Попробуй через минуту.",
+    showPassword: "Показать пароль",
+    hidePassword: "Скрыть пароль",
   },
   nav: {
     dashboard: "Главная",
