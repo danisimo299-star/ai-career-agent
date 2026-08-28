@@ -44,7 +44,7 @@ export function InterviewSessionView({ session, onAnswer, onFinish, finishing }:
   };
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] min-h-[420px] flex-col rounded-xl border">
+    <div className="flex h-[calc(100dvh-14rem)] min-h-[420px] flex-col rounded-xl border">
       <div className="flex items-center justify-between gap-3 border-b p-4">
         <div className="flex-1 space-y-1.5">
           <p className="text-muted-foreground text-sm font-medium">

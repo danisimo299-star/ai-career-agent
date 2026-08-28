@@ -372,8 +372,6 @@ export const ru: Dictionary = {
     mobileNav: {
       navLabel: "Основная навигация",
       home: "Главное",
-      career: "Карьера",
-      jobs: "Вакансии",
       coach: "Чат",
       more: "Ещё",
       moreSheetTitle: "Ещё",

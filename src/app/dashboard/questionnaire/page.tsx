@@ -25,7 +25,11 @@ export default async function QuestionnairePage() {
   }));
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col">
+    // `<main>` pads its bottom by 6rem on mobile (room for the fixed bottom
+    // nav) but only 1.5rem at md+ — this full-bleed view has to cancel
+    // exactly that, not a flat `-m-6`, or mobile is left with ~4.5rem of
+    // dead space below the composer.
+    <div className="-mx-6 -mt-6 -mb-24 flex h-[calc(100dvh-4rem)] flex-col md:-mb-6">
       <QuestionnaireWindow
         initialMessages={initialMessages}
         initialProgress={progress.percent}

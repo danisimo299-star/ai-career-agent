@@ -370,8 +370,6 @@ export const en = {
     mobileNav: {
       navLabel: "Primary navigation",
       home: "Home",
-      career: "Career",
-      jobs: "Jobs",
       coach: "Chat",
       more: "More",
       moreSheetTitle: "More",

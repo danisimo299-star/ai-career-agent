@@ -16,6 +16,7 @@ import {
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { NavSearch } from "@/components/layout/nav-search";
+import { ProfyMindLogo } from "@/components/brand/profymind-logo";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { getInitials } from "@/lib/utils";
 
@@ -79,13 +80,23 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
   };
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b px-6">
+    <header className="flex h-14 items-center gap-2 border-b px-4 md:gap-3 md:px-6">
+      {/* Sidebar carries the wordmark at md+ (it's hidden entirely below
+          that), so mobile needs its own — otherwise there's no branding
+          anywhere on the screen once the sidebar disappears. */}
+      <Link href="/dashboard" className="flex shrink-0 items-center md:hidden">
+        <ProfyMindLogo size="sm" className="text-sm tracking-tight" />
+      </Link>
       <NavSearch />
-      <div className="flex flex-1 items-center justify-end gap-1">
+      <div className="flex flex-1 items-center justify-end gap-0.5 md:gap-1">
+        {/* AI quick action is a shortcut to Coach, which is already a
+            primary bottom-nav destination on mobile — redundant there, and
+            cutting it (plus the two below) is what keeps the mobile row
+            from cramming into the same space as the desktop one. */}
         <Button
           size="icon"
           variant="ghost"
-          className="text-tool-chat"
+          className="text-tool-chat hidden md:inline-flex"
           aria-label={t.aiQuickActionLabel}
           title={t.aiQuickActionLabel}
           nativeButton={false}
@@ -94,8 +105,13 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
           <Sparkles />
         </Button>
 
-        <LanguageSwitcher />
-        <ThemeToggle />
+        {/* Theme and language stay fully reachable on mobile via Settings
+            (`InterfaceSection`) — dropped here only to give the header
+            room to breathe. */}
+        <span className="hidden md:contents">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </span>
 
         <DropdownMenu onOpenChange={markSeen}>
           <DropdownMenuTrigger
@@ -140,13 +156,17 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
         </DropdownMenu>
 
         <DropdownMenu>
-          <DropdownMenuTrigger data-tour="settings" className="hover:bg-accent ml-1 flex items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors duration-150">
+          <DropdownMenuTrigger
+            data-tour="settings"
+            aria-label={userName ?? dict.nav.profile}
+            className="hover:bg-accent ml-1 flex items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors duration-150"
+          >
             <Avatar className="size-8">
               {userImage && <AvatarImage src={userImage} alt={userName ?? ""} />}
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
-            <span className="max-w-32 truncate text-sm font-medium">{userName ?? dict.nav.profile}</span>
-            <ChevronDown className="text-muted-foreground size-3.5" />
+            <span className="hidden max-w-32 truncate text-sm font-medium md:inline">{userName ?? dict.nav.profile}</span>
+            <ChevronDown className="text-muted-foreground hidden size-3.5 md:inline" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem render={<Link href="/dashboard/passport" />}>

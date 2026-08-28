@@ -4,19 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Compass, Briefcase, Sparkles, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Target, Sparkles, FileText, MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { dashboardNav } from "@/config/nav";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
-const PRIMARY_HREFS = ["/dashboard", "/dashboard/career-analysis", "/dashboard/jobs", "/dashboard/coach"] as const;
+const PRIMARY_HREFS = ["/dashboard", "/dashboard/missions", "/dashboard/coach", "/dashboard/resume"] as const;
 
 const PRIMARY_ICONS: Record<(typeof PRIMARY_HREFS)[number], LucideIcon> = {
   "/dashboard": LayoutDashboard,
-  "/dashboard/career-analysis": Compass,
-  "/dashboard/jobs": Briefcase,
+  "/dashboard/missions": Target,
   "/dashboard/coach": Sparkles,
+  "/dashboard/resume": FileText,
 };
 
 export function MobileBottomNav() {
@@ -25,16 +25,17 @@ export function MobileBottomNav() {
   const nav = dict.dashboard.mobileNav;
   const [open, setOpen] = useState(false);
 
-  const moreItems = dashboardNav.filter(
-    (item) => item.group !== "account" && !PRIMARY_HREFS.includes(item.href as (typeof PRIMARY_HREFS)[number])
-  );
+  // Every dashboard-nav item not pinned to the primary row surfaces here —
+  // including "account"-group ones like the Career Profile, since there's
+  // no sidebar UserPanel dropdown on mobile to reach them from otherwise.
+  const moreItems = dashboardNav.filter((item) => !PRIMARY_HREFS.includes(item.href as (typeof PRIMARY_HREFS)[number]));
   const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href));
 
   const primaryLabel: Record<(typeof PRIMARY_HREFS)[number], string> = {
     "/dashboard": nav.home,
-    "/dashboard/career-analysis": nav.career,
-    "/dashboard/jobs": nav.jobs,
+    "/dashboard/missions": dict.nav.missions,
     "/dashboard/coach": nav.coach,
+    "/dashboard/resume": dict.nav.resume,
   };
 
   return (
