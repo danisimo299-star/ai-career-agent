@@ -18,7 +18,7 @@ export function PersonalInfoSection({ personalInfo, onChange }: PersonalInfoSect
   const set = (key: keyof ResumePersonalInfo, value: string) => onChange({ ...personalInfo, [key]: value });
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
         <Label>{labels.fullName}</Label>
         <Input value={personalInfo.fullName} onChange={(e) => set("fullName", e.target.value)} />

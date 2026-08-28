@@ -9,7 +9,7 @@ export default function MissionsLoading() {
       </div>
       <Skeleton className="h-24 w-full" />
       <Skeleton className="h-32 w-full" />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-28 w-full" />
       </div>

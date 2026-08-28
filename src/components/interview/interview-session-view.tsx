@@ -71,7 +71,7 @@ export function InterviewSessionView({ session, onAnswer, onFinish, finishing }:
               <>
                 <MessageBubble message={{ id: `${question.id}-a`, role: "user", content: question.userAnswer }} />
                 {question.aiEvaluation && (
-                  <div className="border-border bg-muted/40 ml-11 max-w-[80%] rounded-lg border p-3 text-sm sm:max-w-[70%]">
+                  <div className="border-border bg-muted/40 ml-11 max-w-[80%] min-w-0 rounded-lg border p-3 text-sm break-words sm:max-w-[70%]">
                     {question.aiEvaluation}
                   </div>
                 )}

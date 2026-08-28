@@ -336,7 +336,7 @@ export function JobsView({
                   </p>
                 )}
               </div>
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {results.map((item, i) => (
                   <motion.div
                     key={vacancyKey(item.vacancy)}

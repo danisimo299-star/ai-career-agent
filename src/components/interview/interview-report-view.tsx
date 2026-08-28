@@ -49,7 +49,7 @@ export function InterviewReportView({ session, weakSkill, onStartNew }: Intervie
             <p className="text-muted-foreground max-w-md text-sm">{report.overallResult}</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <CategoryRow label={r.categoryScores.technicalKnowledge} value={report.categoryScores.technicalKnowledge} />
             <CategoryRow label={r.categoryScores.communication} value={report.categoryScores.communication} />
             <CategoryRow label={r.categoryScores.answerQuality} value={report.categoryScores.answerQuality} />
@@ -63,7 +63,7 @@ export function InterviewReportView({ session, weakSkill, onStartNew }: Intervie
         <InsightBanner text={r.weakSkillRecommendationTemplate.replaceAll("{skill}", weakSkill.skill)} />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

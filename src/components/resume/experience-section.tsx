@@ -101,7 +101,7 @@ export function ExperienceSection({ entries, onChange, onSuggestBullets }: Exper
             <DialogTitle>{page.sections.experience}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>{page.fields.role}</Label>
                 <Input value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} />

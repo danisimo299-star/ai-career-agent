@@ -18,7 +18,7 @@ export function ResumeScorePanel({ result }: { result: ResumeScoreResult }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-2.5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {(Object.keys(result.breakdown) as (keyof typeof result.breakdown)[]).map((key) => (
             <div key={key} className="space-y-1">
               <div className="flex items-center justify-between text-xs">

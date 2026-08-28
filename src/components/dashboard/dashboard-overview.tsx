@@ -90,17 +90,23 @@ export function DashboardOverview({
         />
       </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <motion.div variants={itemVariants}>
+      {/* `grid-cols-1` has to be explicit here, not just implied by omission
+          — without it, `display:grid` falls back to an implicit `auto`
+          track below `md:`, and an `auto` track has no `minmax(0, …)` cap,
+          so a grid item with no `min-w-0` forces the track (and the whole
+          row) to its max-content width instead of the viewport's. Same
+          reasoning behind `min-w-0` on each item wrapper below. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <motion.div variants={itemVariants} className="min-w-0">
           <DashboardRecommendationCard nextSteps={upcomingStageKeys} />
         </motion.div>
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="min-w-0">
           <WeeklyFocusPreview milestoneTitle={thisWeekMilestoneTitle} tasks={thisWeekTasks} percent={thisWeekPercent} />
         </motion.div>
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="min-w-0">
           <DashboardTasksCard tasks={tasks} />
         </motion.div>
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="min-w-0">
           <DashboardJobsPreviewCard jobs={jobs} />
         </motion.div>
       </div>

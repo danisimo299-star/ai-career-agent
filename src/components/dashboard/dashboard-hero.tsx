@@ -76,7 +76,7 @@ export function DashboardHero({ userName, nextStepKey, profilePercent, strengths
 
   return (
     <Card className="profymind-glow">
-      <CardContent className="grid gap-6 py-6 lg:grid-cols-2 lg:items-start">
+      <CardContent className="grid grid-cols-1 gap-6 py-6 lg:grid-cols-2 lg:items-start">
         <div className="space-y-3">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{greeting} 👋</h1>

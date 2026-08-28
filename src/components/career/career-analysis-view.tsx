@@ -235,7 +235,7 @@ export function CareerAnalysisView({
             <EmptyState icon={Compass} title={page.generateCta} description={page.notReadyDescription} />
           ) : (
             <>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {recommendations.map((recommendation, i) => (
                   <RecommendationCard key={recommendation.id} recommendation={recommendation} rank={i + 1} />
                 ))}

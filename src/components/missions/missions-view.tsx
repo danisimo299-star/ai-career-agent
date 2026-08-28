@@ -160,7 +160,7 @@ export function MissionsView({
         {secondary.length > 0 && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-sm font-medium">{page.secondaryMissionsLabel}</p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {secondary.map((mission) => (
                 <MissionCard key={mission.id} mission={mission} variant="secondary" onOpen={setSelectedMissionId} />
               ))}

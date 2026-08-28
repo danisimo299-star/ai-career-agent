@@ -66,5 +66,5 @@ export function MessageContent({ content }: { content: string }) {
   });
   flushBullets("bullets-end");
 
-  return <div className="space-y-1 whitespace-pre-wrap">{blocks}</div>;
+  return <div className="space-y-1 wrap-anywhere whitespace-pre-wrap">{blocks}</div>;
 }

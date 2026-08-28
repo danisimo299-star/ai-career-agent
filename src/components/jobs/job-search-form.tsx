@@ -95,7 +95,7 @@ export function JobSearchForm({ initialFilters, searching, onSearch, onAssistant
       <Card>
         <CardContent className="space-y-4 pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>{page.filters.targetRoleLabel}</Label>
                 <Input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder={page.filters.targetRolePlaceholder} required />

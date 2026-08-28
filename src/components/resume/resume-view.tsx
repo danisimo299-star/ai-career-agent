@@ -333,7 +333,7 @@ export function ResumeView({ initialResume, suggestedTargetRole }: { initialResu
         </TabsList>
 
         <TabsContent value="edit" className="mt-4">
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="min-w-0 space-y-4 lg:col-span-2">
               <Card>
                 <CardHeader>

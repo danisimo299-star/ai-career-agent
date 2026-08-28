@@ -31,7 +31,7 @@ export function MessageBubble({ message }: { message: MessageBubbleData }) {
       </div>
       <div
         className={cn(
-          "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap sm:max-w-[70%]",
+          "max-w-[80%] min-w-0 rounded-2xl px-4 py-2.5 text-sm break-words whitespace-pre-wrap sm:max-w-[70%]",
           isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"
         )}
       >

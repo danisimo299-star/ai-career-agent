@@ -102,11 +102,11 @@ export function QuestionWidget({ question, interests, disabled, onAnswer }: Ques
               disabled={disabled}
               onClick={() => toggle(opt.key)}
               className={cn(
-                "hover-lift inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors",
+                "hover-lift inline-flex max-w-full items-center gap-1.5 rounded-full border px-3.5 py-2 text-left text-sm font-medium break-words transition-colors",
                 isSelected ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/40"
               )}
             >
-              {isSelected && <Check className="size-3.5" />}
+              {isSelected && <Check className="size-3.5 shrink-0" />}
               {opt.label}
             </button>
           );

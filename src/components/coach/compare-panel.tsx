@@ -91,7 +91,7 @@ export function ComparePanel() {
       </Card>
 
       {results.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {results.map((scenario) => (
             <Card key={scenario.title}>
               <CardContent className="space-y-2 pt-6">
