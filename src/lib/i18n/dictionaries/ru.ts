@@ -585,7 +585,12 @@ export const ru: Dictionary = {
       setup: {
         title: "Настрой собеседование",
         targetRoleLabel: "Целевая позиция",
-        targetRolePlaceholder: "Выбери позицию",
+        targetRolePlaceholder: "Выбери или напиши профессию",
+        targetRoleSearchPlaceholder: "Поиск профессии…",
+        targetRoleUseCustomTemplate: 'Использовать «{role}»',
+        targetRoleRecommended: "Рекомендовано для тебя",
+        targetRoleNoMatches: "Ничего не найдено",
+        targetRoleEmptyError: "Укажи профессию или должность",
         typeLabel: "Тип собеседования",
         types: {
           GENERAL: "Общее",

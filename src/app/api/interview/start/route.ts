@@ -6,7 +6,7 @@ import { interviewService } from "@/server/services/interview.service";
 import { AIProviderUnavailableError } from "@/lib/errors";
 
 const startSessionSchema = z.object({
-  targetRole: z.string().trim().min(1).max(200),
+  targetRole: z.string().trim().min(1).max(150),
   interviewType: z.enum(["GENERAL", "TECHNICAL", "BEHAVIORAL", "HR", "MIXED", "RESUME_BASED"]),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
   experienceLevel: z.enum(["STUDENT", "JUNIOR", "MID", "SENIOR"]),

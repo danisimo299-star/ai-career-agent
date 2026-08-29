@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Sparkles, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxInputGroup,
+  ComboboxInput,
+  ComboboxTrigger,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { careerOptions } from "@/lib/ai/career/mock-data";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import type { InterviewSetupInput, InterviewQuestionType, InterviewDifficulty, InterviewExperienceLevel } from "./types";
@@ -14,6 +24,9 @@ const interviewTypes: InterviewQuestionType[] = ["MIXED", "TECHNICAL", "BEHAVIOR
 const difficulties: InterviewDifficulty[] = ["EASY", "MEDIUM", "HARD"];
 const experienceLevels: InterviewExperienceLevel[] = ["STUDENT", "JUNIOR", "MID", "SENIOR"];
 const questionCounts = [5, 10, 15] as const;
+
+/** Matches the API's own `startSessionSchema` cap (`start/route.ts`) — kept in sync manually since one lives in a Zod schema and the other in a plain UI constant. */
+const MAX_TARGET_ROLE_LENGTH = 150;
 
 interface InterviewSetupFormProps {
   defaultTargetRole: string | null;
@@ -30,11 +43,38 @@ export function InterviewSetupForm({ defaultTargetRole, initialCustomRole, start
 
   const customRole = initialCustomRole && !careerOptions.some((o) => o.title[locale] === initialCustomRole) ? initialCustomRole : null;
   const defaultRoleOption = careerOptions.find((o) => o.title[locale] === defaultTargetRole);
-  const [targetRole, setTargetRole] = useState(customRole ?? defaultRoleOption?.title[locale] ?? careerOptions[0].title[locale]);
+  // Career Profile's recommended role, when it's a catalog title — pinned to
+  // the top of the suggestion list, but the field stays a free-text combobox
+  // either way, so the user is never forced onto it.
+  const recommendedRole = defaultRoleOption?.title[locale] ?? null;
+
+  const [targetRole, setTargetRole] = useState(customRole ?? recommendedRole ?? careerOptions[0].title[locale]);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [interviewType, setInterviewType] = useState<InterviewQuestionType>("MIXED");
   const [difficulty, setDifficulty] = useState<InterviewDifficulty>("MEDIUM");
   const [experienceLevel, setExperienceLevel] = useState<InterviewExperienceLevel>("JUNIOR");
   const [questionCount, setQuestionCount] = useState<5 | 10 | 15>(5);
+
+  const roleOptions = useMemo(() => {
+    const base = careerOptions.map((option) => option.title[locale]);
+    if (recommendedRole && base.includes(recommendedRole)) {
+      return [recommendedRole, ...base.filter((title) => title !== recommendedRole)];
+    }
+    return base;
+  }, [locale, recommendedRole]);
+
+  const trimmedRole = targetRole.trim();
+  const hasExactMatch = roleOptions.some((title) => title.toLowerCase() === trimmedRole.toLowerCase());
+
+  const handleStart = () => {
+    const trimmed = targetRole.trim();
+    if (!trimmed) {
+      setRoleError(setup.targetRoleEmptyError);
+      return;
+    }
+    setRoleError(null);
+    onStart({ targetRole: trimmed, interviewType, difficulty, experienceLevel, questionCount });
+  };
 
   return (
     <Card>
@@ -45,23 +85,47 @@ export function InterviewSetupForm({ defaultTargetRole, initialCustomRole, start
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>{setup.targetRoleLabel}</Label>
-            <Select value={targetRole} onValueChange={(value) => value && setTargetRole(value as string)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={setup.targetRolePlaceholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {customRole && (
-                  <SelectItem key="custom" value={customRole}>
-                    {customRole}
-                  </SelectItem>
+            <Combobox
+              items={roleOptions}
+              // `value` is kept identical to `inputValue` on every keystroke
+              // (not just on selecting a list item) — every character typed
+              // is immediately the authoritative target role, with no
+              // separate "commit" step. Without this, Base UI has no
+              // tracked selected value for free-typed text, so Escape's
+              // built-in "revert to last selection" reverts to nothing —
+              // silently wiping whatever the user just typed.
+              value={targetRole}
+              onValueChange={(value) => setTargetRole((value ?? "").slice(0, MAX_TARGET_ROLE_LENGTH))}
+              inputValue={targetRole}
+              onInputValueChange={(value) => {
+                setTargetRole(value.slice(0, MAX_TARGET_ROLE_LENGTH));
+                if (roleError) setRoleError(null);
+              }}
+            >
+              <ComboboxInputGroup aria-invalid={roleError ? true : undefined} className={roleError ? "border-destructive ring-destructive/20" : undefined}>
+                <ComboboxInput placeholder={setup.targetRolePlaceholder} maxLength={MAX_TARGET_ROLE_LENGTH} aria-label={setup.targetRoleLabel} />
+                <ComboboxTrigger aria-label={setup.targetRoleSearchPlaceholder} />
+              </ComboboxInputGroup>
+              <ComboboxPopup>
+                <ComboboxEmpty>{setup.targetRoleNoMatches}</ComboboxEmpty>
+                <ComboboxList>
+                  {(item: string) => (
+                    <ComboboxItem key={item} value={item}>
+                      {item}
+                      {item === recommendedRole && (
+                        <span className="text-muted-foreground ml-1.5 text-xs font-normal">{setup.targetRoleRecommended}</span>
+                      )}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                {trimmedRole.length > 0 && !hasExactMatch && (
+                  <ComboboxItem value={trimmedRole} className="text-foreground font-medium">
+                    {setup.targetRoleUseCustomTemplate.replace("{role}", trimmedRole)}
+                  </ComboboxItem>
                 )}
-                {careerOptions.map((option) => (
-                  <SelectItem key={option.key} value={option.title[locale]}>
-                    {option.title[locale]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              </ComboboxPopup>
+            </Combobox>
+            {roleError && <p className="text-destructive text-xs">{roleError}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -135,11 +199,7 @@ export function InterviewSetupForm({ defaultTargetRole, initialCustomRole, start
           </div>
         </div>
 
-        <Button
-          className="w-full sm:w-auto"
-          disabled={starting}
-          onClick={() => onStart({ targetRole, interviewType, difficulty, experienceLevel, questionCount })}
-        >
+        <Button className="w-full sm:w-auto" disabled={starting} onClick={handleStart}>
           {starting ? <RotateCw className="animate-spin" /> : <Sparkles />}
           {starting ? setup.starting : setup.startCta}
         </Button>

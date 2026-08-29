@@ -583,7 +583,12 @@ export const en = {
       setup: {
         title: "Set up your interview",
         targetRoleLabel: "Target position",
-        targetRolePlaceholder: "Choose a position",
+        targetRolePlaceholder: "Choose or type a position",
+        targetRoleSearchPlaceholder: "Search a position…",
+        targetRoleUseCustomTemplate: 'Use "{role}"',
+        targetRoleRecommended: "Recommended for you",
+        targetRoleNoMatches: "No matches found",
+        targetRoleEmptyError: "Enter a job title or position",
         typeLabel: "Interview type",
         types: {
           GENERAL: "General",
