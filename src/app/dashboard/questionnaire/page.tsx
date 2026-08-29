@@ -25,11 +25,16 @@ export default async function QuestionnairePage() {
   }));
 
   return (
-    // `<main>` pads its bottom by 6rem on mobile (room for the fixed bottom
-    // nav) but only 1.5rem at md+ — this full-bleed view has to cancel
-    // exactly that, not a flat `-m-6`, or mobile is left with ~4.5rem of
-    // dead space below the composer.
-    <div className="-mx-6 -mt-6 -mb-24 flex h-[calc(100dvh-4rem)] flex-col md:-mb-6">
+    // `<main>` pads its bottom by `--mobile-bottom-nav-clearance` on mobile
+    // (room for the fixed bottom nav) but only 1.5rem at md+ — this
+    // full-bleed view has to cancel exactly that via margin, not a flat
+    // `-m-6`. Canceling the margin alone isn't enough on its own, though:
+    // the container's *height* also has to shrink by that same amount on
+    // mobile, or it fills the full space below the header and its own
+    // bottom edge — including whatever sits at the end of the scrollable
+    // question list, like the "Продолжить" button — ends up rendered
+    // underneath the fixed bottom nav instead of above it.
+    <div className="-mx-6 -mt-6 -mb-[var(--mobile-bottom-nav-clearance)] flex h-[calc(100dvh-4rem-var(--mobile-bottom-nav-clearance))] flex-col md:-mb-6 md:h-[calc(100dvh-4rem)]">
       <QuestionnaireWindow
         initialMessages={initialMessages}
         initialProgress={progress.percent}

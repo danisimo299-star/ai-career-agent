@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             flex-fill height chain — sticky degrades gracefully to its
             natural flow position when content is short, so a short
             conversation never leaves a stretched empty gap above it. */}
-        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto p-6 pb-24 md:pb-6">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto p-6 pb-[var(--mobile-bottom-nav-clearance)] md:pb-6">{children}</main>
       </div>
       <MobileBottomNav />
       <CommandPalette />
