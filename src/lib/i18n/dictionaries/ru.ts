@@ -1034,7 +1034,9 @@ export const ru: Dictionary = {
         memoryNotedLabel: "Запомнил(а) на будущее",
         errorSend: "ProfyMind сейчас не смог ответить. Попробуй ещё раз.",
         errorUnavailable: "ProfyMind сейчас недоступен. Проверь подключение AI-сервиса.",
+        errorIncomplete: "Не удалось завершить ответ.",
         retry: "Повторить",
+        scrollToBottom: "Вниз",
         actions: {
           openJobs: "Открыть вакансии",
           viewMatchingJobs: "Смотреть подходящих вакансий: {count}",

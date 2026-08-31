@@ -1032,7 +1032,9 @@ export const en = {
         memoryNotedLabel: "Noted for later",
         errorSend: "ProfyMind couldn't answer that. Please try again.",
         errorUnavailable: "ProfyMind is unavailable right now. Please check the AI service connection.",
+        errorIncomplete: "Couldn't finish the response.",
         retry: "Retry",
+        scrollToBottom: "Down",
         actions: {
           openJobs: "Open Jobs",
           viewMatchingJobs: "View {count} matching jobs",
