@@ -17,6 +17,12 @@ export const en = {
     showPassword: "Show password",
     hidePassword: "Hide password",
   },
+  seo: {
+    titleDefault: "ProfyMind — AI Career Assistant for Job Search",
+    titleTemplate: "%s | ProfyMind",
+    description:
+      "ProfyMind is a personal AI career assistant. Find the right profession, assess your skills, build a career plan and resume, prepare for interviews, and discover matching jobs.",
+  },
   nav: {
     dashboard: "Home",
     questionnaire: "Career Interview",

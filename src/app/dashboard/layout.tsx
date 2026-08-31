@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
@@ -9,6 +10,16 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { profileRepository } from "@/server/repositories/profile.repository";
 import { getUserTargetRole, getTopbarNotifications } from "@/server/services/dashboard.service";
+
+// Every route under here requires a signed-in session — an anonymous
+// crawler never actually sees the real content (it's redirected to
+// `/login` before this layout renders), but robots.ts also disallows
+// `/dashboard` outright and this stays as defense-in-depth for anything
+// that reaches these URLs some other way (a stale external link, a page
+// that doesn't redirect, etc.).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();

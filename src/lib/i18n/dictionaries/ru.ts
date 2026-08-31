@@ -19,6 +19,12 @@ export const ru: Dictionary = {
     showPassword: "Показать пароль",
     hidePassword: "Скрыть пароль",
   },
+  seo: {
+    titleDefault: "ProfyMind — AI-помощник для карьеры и поиска работы",
+    titleTemplate: "%s | ProfyMind",
+    description:
+      "ProfyMind — персональный AI-помощник для развития карьеры. Определи подходящую профессию, оцени навыки, составь карьерный план и резюме, подготовься к собеседованию и найди подходящие вакансии.",
+  },
   nav: {
     dashboard: "Главная",
     questionnaire: "Карьерное интервью",
