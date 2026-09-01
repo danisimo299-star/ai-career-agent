@@ -5,6 +5,7 @@ import Link from "next/link";
 import { IdCard, Map, FileText, Mic, Percent, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 interface MetricItem {
   label: string;
@@ -13,6 +14,10 @@ interface MetricItem {
   href: string;
   icon: LucideIcon;
   toneClass: string;
+  /** Hides this card below `sm:` when there's nothing to show yet — a lone
+   * 5th card wrapping to its own row leaves a big empty gap next to it on
+   * a 2-column mobile grid; desktop's 5-column row isn't affected. */
+  hideWhenEmptyOnMobile?: boolean;
 }
 
 interface ProfileSnapshotRowProps {
@@ -74,13 +79,18 @@ export function ProfileSnapshotRow({ profilePercent, planPercent, resumeScore, i
       href: "/dashboard/interview",
       icon: Percent,
       toneClass: "bg-tool-interview-solid text-white",
+      hideWhenEmptyOnMobile: true,
     },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {items.map((item) => (
-        <Link key={item.label} href={item.href}>
+        <Link
+          key={item.label}
+          href={item.href}
+          className={cn(item.hideWhenEmptyOnMobile && item.value === "—" && "hidden sm:block")}
+        >
           <Card className="card-interactive h-full">
             <CardContent className="space-y-2.5 py-4">
               <span className={`flex size-8 items-center justify-center rounded-lg ${item.toneClass}`}>

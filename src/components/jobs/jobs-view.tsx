@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Search as SearchIcon, ExternalLink, Briefcase } from "lucide-react";
+import { Search as SearchIcon, ExternalLink, Briefcase, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { isSafeExternalUrl } from "@/lib/security/url-safety";
+import { cn } from "@/lib/utils";
 import { JobSearchForm } from "./job-search-form";
 import { JobCard } from "./job-card";
 import { PrepareDialog } from "./prepare-dialog";
@@ -94,6 +95,13 @@ export function JobsView({
   const [lastFilters, setLastFilters] = useState<JobSearchFiltersState>({ targetRole: defaultTargetRole, city: defaultCity, sort: "bestMatch" });
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  // Below `lg:`, the filter form starts collapsed behind a "Фильтры" toggle
+  // once there's already a results list worth prioritizing — open by
+  // default only when there's nothing to show yet, so a first-time visitor
+  // isn't staring at an empty page with the one thing they need to act on
+  // hidden. `lg:` and up always shows the form regardless of this state —
+  // see the `cn(...)` on the form wrapper below.
+  const [filtersOpen, setFiltersOpen] = useState(initialResults.length === 0);
 
   const runSearch = async (filters: JobSearchFiltersState) => {
     setSearching(true);
@@ -118,6 +126,10 @@ export function JobsView({
       setProviderName(data.providerName);
       setBroaderMarket(data.broaderMarket ?? null);
       setResultsFetchedAt(new Date());
+      // Collapses the filter form back behind "Фильтры" below `lg:` once a
+      // search actually ran — irrelevant at `lg:`+, where the form always
+      // shows regardless of this flag.
+      if (data.results.length > 0) setFiltersOpen(false);
     } catch {
       toast.error(page.results.errorSearch);
     } finally {
@@ -278,15 +290,30 @@ export function JobsView({
         </TabsList>
 
         <TabsContent value="search" keepMounted className="mt-4 space-y-4">
-          <JobSearchForm
-            key={formGeneration}
-            initialFilters={initialFilters}
-            searching={searching}
-            onSearch={runSearch}
-            onAssistant={handleAssistant}
-            assistantThinking={assistantThinking}
-            assistantError={assistantError}
-          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="size-3.5" />
+            {filtersOpen ? page.hideFiltersCta : page.showFiltersCta}
+            {filtersOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </Button>
+
+          <div className={cn(filtersOpen ? "block" : "hidden lg:block")}>
+            <JobSearchForm
+              key={formGeneration}
+              initialFilters={initialFilters}
+              searching={searching}
+              onSearch={runSearch}
+              onAssistant={handleAssistant}
+              assistantThinking={assistantThinking}
+              assistantError={assistantError}
+            />
+          </div>
 
           <p className="text-muted-foreground text-xs">{providerName === "hh" ? page.providerNoteHh : page.providerNoteMock}</p>
 

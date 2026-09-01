@@ -853,6 +853,8 @@ export const ru: Dictionary = {
         hint: "Опиши, что ищешь, обычным языком — ИИ превратит это в фильтры поиска ниже.",
         error: "Не удалось разобрать запрос. Попробуй воспользоваться фильтрами ниже.",
       },
+      showFiltersCta: "Фильтры",
+      hideFiltersCta: "Скрыть фильтры",
       filters: {
         targetRoleLabel: "Профессия",
         targetRolePlaceholder: "например, Backend-разработчик",

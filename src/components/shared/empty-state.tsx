@@ -12,7 +12,7 @@ interface EmptyStateProps {
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+      <CardContent className="flex flex-col items-center gap-3 py-10 text-center sm:py-16">
         <div className="bg-accent flex size-12 items-center justify-center rounded-full">
           <Icon className="text-primary size-6" />
         </div>

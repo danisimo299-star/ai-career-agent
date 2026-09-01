@@ -28,7 +28,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
+      <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-14 text-center sm:py-24">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           {dict.landing.title}
         </h1>
@@ -41,7 +41,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-4 px-6 pb-24 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-5xl gap-4 px-6 pb-14 sm:grid-cols-2 sm:pb-24 lg:grid-cols-3">
         {featureKeys.map((key, index) => {
           const Icon = featureIcons[index];
           const feature = dict.landing.features[key];

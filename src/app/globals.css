@@ -299,6 +299,17 @@
     background-position: 0 0, 0 0;
     background-attachment: fixed;
   }
+  /* `fixed` attachment repaints on every scroll tick on mobile Safari/Chrome
+     (no compositor fast-path the way desktop gets) — one of the more
+     concrete causes of a mobile page feeling like it's "floating"/janky
+     during scroll rather than settled. Static texture either way; `scroll`
+     just means it moves with the page instead of staying pinned, which is
+     imperceptible for a sparse dot tile but meaningfully cheaper to paint. */
+  @media (max-width: 767px) {
+    .page-depth {
+      background-attachment: scroll;
+    }
+  }
   .dark .page-depth {
     background-image:
       radial-gradient(70% 50% at 15% 0%, color-mix(in oklch, var(--tool-chat) 9%, transparent), transparent 65%),
@@ -327,7 +338,7 @@
     background: radial-gradient(120% 120% at 15% 0%, color-mix(in oklch, var(--tool-chat) 14%, transparent), transparent 60%);
     animation: ambient-ai-breathe 5s ease-in-out infinite;
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (max-width: 767px) {
     .ambient-ai::before {
       animation: none;
     }
@@ -376,7 +387,7 @@
     background-size: 220% 100%;
     animation: profymind-sheen-sweep 9s ease-in-out infinite;
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (max-width: 767px) {
     .profymind-glow::before,
     .profymind-glow::after {
       animation: none;

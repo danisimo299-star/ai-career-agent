@@ -851,6 +851,8 @@ export const en = {
         hint: "Describe what you're looking for in plain language — the AI turns it into search filters below.",
         error: "Couldn't understand that request. Try the filters below instead.",
       },
+      showFiltersCta: "Filters",
+      hideFiltersCta: "Hide filters",
       filters: {
         targetRoleLabel: "Profession",
         targetRolePlaceholder: "e.g. Backend Developer",
