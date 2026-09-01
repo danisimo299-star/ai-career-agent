@@ -88,7 +88,10 @@ export function RoadmapTimeline({
               </AnimatePresence>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">
+                  {/* Milestone titles can genuinely run long — wraps across
+                      lines instead of ellipsis-cutting a step name the
+                      user actually needs to read in full. */}
+                  <span className="text-sm leading-snug font-medium break-words">
                     {index + 1}. {milestone.title}
                   </span>
                 </div>

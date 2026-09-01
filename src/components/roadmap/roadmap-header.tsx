@@ -64,9 +64,11 @@ export function RoadmapHeader({
 
       <Card>
         <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-muted-foreground text-xs">{page.goalLabel}</p>
-            <p className="truncate text-base font-semibold">{careerTitle}</p>
+            {/* The actual career goal, not a fixed label — wraps rather
+                than ellipsis-cutting a real (possibly long) job title. */}
+            <p className="text-base leading-snug font-semibold break-words">{careerTitle}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">{page.careerScoreLabel}</p>

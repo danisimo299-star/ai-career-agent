@@ -25,9 +25,9 @@ export function MissionsHeader({ careerTitle, careerScore, roadmapProgressPercen
       {careerTitle && (
         <Card>
           <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-5">
-            <div>
+            <div className="min-w-0">
               <p className="text-muted-foreground text-xs">{page.careerLabel}</p>
-              <p className="truncate text-base font-semibold">{careerTitle}</p>
+              <p className="text-base leading-snug font-semibold break-words">{careerTitle}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">{dict.dashboard.roadmapPage.careerScoreLabel}</p>
@@ -42,9 +42,9 @@ export function MissionsHeader({ careerTitle, careerScore, roadmapProgressPercen
                 </div>
               </div>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-muted-foreground text-xs">{page.currentMilestoneLabel}</p>
-              <p className="truncate text-base font-semibold">{currentMilestoneTitle ?? "—"}</p>
+              <p className="text-base leading-snug font-semibold break-words">{currentMilestoneTitle ?? "—"}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">{page.streakLabel}</p>

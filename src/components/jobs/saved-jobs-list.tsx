@@ -63,8 +63,8 @@ export function SavedJobsList({ savedJobs, onStatusChange, onRemove, onFindJobs 
           <Card key={job.id}>
             <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
               <div className="min-w-0 space-y-1">
-                <CardTitle className="truncate text-base">{job.title}</CardTitle>
-                <p className="text-muted-foreground truncate text-sm">{job.company}</p>
+                <CardTitle className="text-base leading-snug break-words">{job.title}</CardTitle>
+                <p className="text-muted-foreground text-sm break-words">{job.company}</p>
                 <p className="text-muted-foreground text-xs">{salaryLabel}</p>
               </div>
               {job.matchScore !== null && <Badge variant="secondary">{page.card.matchTemplate.replace("{score}", String(job.matchScore))}</Badge>}

@@ -80,7 +80,11 @@ export function InterviewHistory({ sessions, onOpen }: InterviewHistoryProps) {
                 <Mic className="size-3.5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{session.targetRole}</p>
+                {/* Custom target roles can be genuinely long ("Тренер по
+                    плаванию для детей") — this is the one identifying
+                    piece of info in the row, so it wraps rather than
+                    ellipsis-cutting instead of the score badge/date. */}
+                <p className="leading-snug font-medium break-words">{session.targetRole}</p>
                 <p className="text-muted-foreground text-xs">
                   {setup.types[session.type]} · {new Date(session.createdAt).toLocaleDateString(locale === "ru" ? "ru-RU" : "en-US")}
                 </p>

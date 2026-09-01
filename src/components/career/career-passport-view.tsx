@@ -50,8 +50,13 @@ function FactChip({ icon: Icon, label, value, toneClass }: { icon: LucideIcon; l
         <Icon className="size-4" />
       </span>
       <div className="min-w-0">
+        {/* Label is always one of a handful of short fixed category words
+            (ГОРОД, ФОРМАТ, …) — safe to truncate, never actually does.
+            `value` is real user data (a city name, a salary range, a
+            language list) that can genuinely run long — wraps instead of
+            silently cutting it. */}
         <p className="text-muted-foreground truncate text-[11px] font-medium tracking-wide uppercase">{label}</p>
-        <p className="text-foreground truncate text-sm font-semibold">{value}</p>
+        <p className="text-foreground text-sm leading-snug font-semibold break-words">{value}</p>
       </div>
     </div>
   );
@@ -130,9 +135,12 @@ export function CareerPassportView({
             <Avatar size="lg" className="bg-tool-profile-solid text-base font-semibold text-white">
               <AvatarFallback className="bg-transparent">{getInitials(userName)}</AvatarFallback>
             </Avatar>
+            {/* A real name/city — not a fixed short label — so it wraps
+                instead of ellipsis-truncating; plenty of vertical room in
+                this card for a second line. */}
             <div className="min-w-0">
-              <h2 className="truncate text-xl font-bold tracking-tight">{userName ?? page.profileTitle}</h2>
-              <p className="text-muted-foreground truncate text-sm">
+              <h2 className="text-xl leading-tight font-bold tracking-tight break-words">{userName ?? page.profileTitle}</h2>
+              <p className="text-muted-foreground text-sm break-words">
                 {[profile.city, educationLabel].filter(Boolean).join(" · ") || page.profileTitle}
               </p>
             </div>

@@ -191,8 +191,17 @@ export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
     return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD_PX;
   };
 
+  // Deliberately not `bottomRef.current?.scrollIntoView({ block: "end" })`:
+  // that stops as soon as the target's own edge touches the scrollport's
+  // edge — it has no notion that the last ~90px of this scrollport is
+  // visually covered by the fixed bottom nav (that's exactly what
+  // `<main>`'s bottom padding reserves room for). Scrolling the container
+  // to its true `scrollHeight` instead moves the composer past that
+  // reserved padding too, clearing the nav for real.
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+    const el = scrollParentRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+    else bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   };
 
   useEffect(() => {
@@ -215,17 +224,27 @@ export function ChatPanel({ initialMessages, onMessageSent }: ChatPanelProps) {
     // Only needs to run once — the scroll parent doesn't change identity across renders.
   }, []);
 
-  // A brand-new message (the user's own send, or the first render of
-  // history) always scrolls into view — only *streaming updates* to an
-  // already-visible message respect the user having scrolled away (see the
-  // `content`-only effect further down, next to `runStream`).
+  // A brand-new message (the user's own send) always scrolls into view —
+  // only *streaming updates* to an already-visible message respect the
+  // user having scrolled away (see the `content`-only effect further
+  // down, next to `runStream`). The very first render needs its own
+  // explicit flag: `prevMessageCountRef` starts out already equal to the
+  // initial `messages.length` (it's seeded from the same value), so the
+  // "did the count change" check below is trivially false on mount and
+  // would otherwise never fire — meaning returning to an existing
+  // conversation left the page sitting at scroll-top 0, with the composer
+  // and most recent messages rendered below the fold, behind the fixed
+  // bottom nav, until the user scrolled manually.
+  const isFirstRenderRef = useRef(true);
   const prevMessageCountRef = useRef(messages.length);
   useEffect(() => {
-    if (messages.length !== prevMessageCountRef.current) {
+    const isMount = isFirstRenderRef.current;
+    isFirstRenderRef.current = false;
+    if (isMount || messages.length !== prevMessageCountRef.current) {
       prevMessageCountRef.current = messages.length;
       nearBottomRef.current = true;
       setShowJumpToBottom(false);
-      scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
+      scrollToBottom(isMount || messages.length <= 1 ? "auto" : "smooth");
     }
   }, [messages.length]);
 

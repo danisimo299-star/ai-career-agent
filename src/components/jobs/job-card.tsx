@@ -50,9 +50,12 @@ export function JobCard({ item, saved, onSave, onPrepare }: JobCardProps) {
   return (
     <Card size="sm" className="hover-lift">
       <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+        {/* The actual vacancy title/company — real, sometimes-long data —
+            wraps instead of ellipsis-cutting a job title the user needs
+            to read in full to decide whether it's worth opening. */}
         <div className="min-w-0 space-y-0.5">
-          <CardTitle className="truncate">{vacancy.title}</CardTitle>
-          <p className="text-muted-foreground truncate text-xs">{vacancy.company}</p>
+          <CardTitle className="leading-snug break-words">{vacancy.title}</CardTitle>
+          <p className="text-muted-foreground text-xs break-words">{vacancy.company}</p>
         </div>
         <motion.span
           initial={{ opacity: 0, scale: 0.7 }}
