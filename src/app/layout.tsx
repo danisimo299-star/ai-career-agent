@@ -43,12 +43,11 @@ export async function generateMetadata(): Promise<Metadata> {
       title: seo.titleDefault,
       description: seo.description,
     },
-    // No custom app-icon asset exists yet — the default `favicon.ico` file
-    // convention (src/app/favicon.ico) handles the tab icon on its own; an
-    // explicit `icons` entry pointing at a file that doesn't exist would
-    // override that default with nothing. Add `icons: { icon:
-    // "/brand/profymind-logo.png" }` back once that file is actually in
-    // place — see ProfyMindLogo for the same asset used everywhere else.
+    // Deliberately no explicit `icons` field here — `favicon.ico`,
+    // `icon.tsx`, and `apple-icon.tsx` in this same directory are Next's
+    // file-based icon convention and are auto-detected into the right
+    // `<link>` tags on their own. Adding an `icons` entry on top would
+    // fight those (the exact "conflicting declarations" this app avoids).
   };
 }
 
