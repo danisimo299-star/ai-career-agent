@@ -43,11 +43,14 @@ export async function generateMetadata(): Promise<Metadata> {
       title: seo.titleDefault,
       description: seo.description,
     },
-    // Deliberately no explicit `icons` field here — `favicon.ico`,
-    // `icon.tsx`, and `apple-icon.tsx` in this same directory are Next's
-    // file-based icon convention and are auto-detected into the right
-    // `<link>` tags on their own. Adding an `icons` entry on top would
-    // fight those (the exact "conflicting declarations" this app avoids).
+    // Deliberately no explicit `icons` field here — `favicon.ico` and
+    // `apple-icon.png` in this same directory are Next's file-based icon
+    // convention and are auto-detected into the right `<link>` tags on
+    // their own. Adding an `icons` entry on top would fight those (the
+    // exact "conflicting declarations" this app avoids). Both files are
+    // the original ProfyMind mark restored from git history — see
+    // `apple-icon.png`'s own note below for why it's a static resize
+    // rather than a code-generated route.
   };
 }
 
