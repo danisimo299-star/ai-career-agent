@@ -1026,7 +1026,7 @@ export const en = {
         addToRoadmapCta: "Open roadmap",
       },
       chat: {
-        placeholder: "Ask ProfyMind about your career, job, or growth…",
+        placeholder: "Ask ProfyMind",
         send: "Send",
         stop: "Stop",
         copy: "Copy",

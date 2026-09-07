@@ -63,12 +63,33 @@ export function CoachView({ initialMessages, context, readiness, applicationAnal
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v as CoachTab)} className="flex flex-col">
         <div className="shrink-0 overflow-x-auto">
+          {/* `flex-none` overrides `TabsTrigger`'s shared `flex-1` — that
+              default (equal-width, divide the bar evenly) is right for a
+              short tab set that always fits, but fights this bar's
+              `overflow-x-auto` + `w-max`: with 5 tabs (one of them long,
+              "Сравнить профессии") and `flex-1`'s `flex-basis: 0`, every
+              trigger got squeezed into an equal, too-narrow slice instead
+              of sizing to its own label — and since triggers are also
+              `whitespace-nowrap`, the overflowing text visually spilled
+              into its neighbors instead of scrolling. Sized to natural
+              content width per tab, the strip's true width exceeds the
+              viewport and scrolls horizontally as intended. */}
           <TabsList className="w-max min-w-full sm:w-fit sm:min-w-0">
-            <TabsTrigger value="chat">{page.tabs.chat}</TabsTrigger>
-            <TabsTrigger value="overview">{page.tabs.overview}</TabsTrigger>
-            <TabsTrigger value="skillGap">{page.tabs.skillGap}</TabsTrigger>
-            <TabsTrigger value="plan">{page.tabs.plan}</TabsTrigger>
-            <TabsTrigger value="compare">{page.tabs.compare}</TabsTrigger>
+            <TabsTrigger value="chat" className="flex-none">
+              {page.tabs.chat}
+            </TabsTrigger>
+            <TabsTrigger value="overview" className="flex-none">
+              {page.tabs.overview}
+            </TabsTrigger>
+            <TabsTrigger value="skillGap" className="flex-none">
+              {page.tabs.skillGap}
+            </TabsTrigger>
+            <TabsTrigger value="plan" className="flex-none">
+              {page.tabs.plan}
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="flex-none">
+              {page.tabs.compare}
+            </TabsTrigger>
           </TabsList>
         </div>
 

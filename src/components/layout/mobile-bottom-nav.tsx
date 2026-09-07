@@ -4,19 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Target, Sparkles, FileText, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Target, Sparkles, Briefcase, MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { dashboardNav } from "@/config/nav";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
-const PRIMARY_HREFS = ["/dashboard", "/dashboard/plan", "/dashboard/coach", "/dashboard/resume"] as const;
+const PRIMARY_HREFS = ["/dashboard", "/dashboard/plan", "/dashboard/coach", "/dashboard/jobs"] as const;
 
 const PRIMARY_ICONS: Record<(typeof PRIMARY_HREFS)[number], LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/dashboard/plan": Target,
   "/dashboard/coach": Sparkles,
-  "/dashboard/resume": FileText,
+  "/dashboard/jobs": Briefcase,
 };
 
 export function MobileBottomNav() {
@@ -35,7 +35,7 @@ export function MobileBottomNav() {
     "/dashboard": nav.home,
     "/dashboard/plan": dict.nav.plan,
     "/dashboard/coach": nav.coach,
-    "/dashboard/resume": dict.nav.resume,
+    "/dashboard/jobs": dict.nav.jobs,
   };
 
   return (

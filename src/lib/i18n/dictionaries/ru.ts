@@ -1028,7 +1028,7 @@ export const ru: Dictionary = {
         addToRoadmapCta: "Открыть дорожную карту",
       },
       chat: {
-        placeholder: "Спроси ProfyMind о карьере, работе или развитии…",
+        placeholder: "Спроси ProfyMind",
         send: "Отправить",
         stop: "Остановить",
         copy: "Скопировать",

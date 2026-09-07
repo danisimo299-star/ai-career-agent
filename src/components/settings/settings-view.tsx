@@ -53,8 +53,11 @@ export function SettingsView({ userName, profile }: SettingsViewProps) {
           <TabsList className="w-max min-w-full sm:w-fit sm:min-w-0">
             {tabs.map((key) => {
               const Icon = TAB_ICON[key];
+              // `flex-none` — see `coach-view.tsx`'s tab list for why the
+              // shared `flex-1` default breaks a 5-tab bar this long
+              // inside `overflow-x-auto`.
               return (
-                <TabsTrigger key={key} value={key} className="gap-1.5">
+                <TabsTrigger key={key} value={key} className="flex-none gap-1.5">
                   <Icon className={cn("size-3.5", tab === key && TAB_TONE[key])} />
                   {page.tabs[key]}
                 </TabsTrigger>
