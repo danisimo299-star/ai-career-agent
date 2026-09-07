@@ -26,9 +26,9 @@ function PasswordInput({ className, showLabel, hideLabel, ...props }: PasswordIn
 
   return (
     <div className="relative">
-      <Input type={visible ? "text" : "password"} className={cn("pr-9", className)} {...props} />
+      <Input type={visible ? "text" : "password"} className={cn("pr-12 md:pr-9", className)} {...props} />
       {/* Full input height (not the smaller `icon-xs` used for compact inline
-          actions elsewhere) so the tap target is a comfortable ~32px square
+          actions elsewhere) so the tap target is a comfortable 44px square
           on mobile, not just the visual icon size — see item 15 of the brief. */}
       <Button
         type="button"

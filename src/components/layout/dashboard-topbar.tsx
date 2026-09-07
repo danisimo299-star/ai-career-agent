@@ -80,7 +80,7 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
   };
 
   return (
-    <header className="flex h-14 items-center gap-2 border-b px-4 md:gap-3 md:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 md:gap-3 md:px-6">
       {/* Sidebar carries the wordmark at md+ (it's hidden entirely below
           that), so mobile needs its own — otherwise there's no branding
           anywhere on the screen once the sidebar disappears. */}
@@ -131,7 +131,7 @@ export function DashboardTopbar({ userName, userImage, notifications }: Dashboar
             <DropdownMenuSeparator />
             {!hasNotifications && <p className="text-muted-foreground px-2 py-3 text-sm">{t.notificationsEmpty}</p>}
             {hasMissions && (
-              <DropdownMenuItem render={<Link href="/dashboard/missions" />}>
+              <DropdownMenuItem render={<Link href="/dashboard/plan" />}>
                 <span className="bg-tool-tasks-solid flex size-7 shrink-0 items-center justify-center rounded-lg text-white">
                   <Target className="size-3.5" />
                 </span>

@@ -26,13 +26,13 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, action, icon: Icon, tone = "neutral" }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {Icon && (
           <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${TONE_CLASSES[tone]}`}>
             <Icon className="size-5" />
           </div>
         )}
-        <div>
+        <div className="min-w-0 break-words">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           {description && <p className="text-muted-foreground mt-0.5 text-sm">{description}</p>}
         </div>

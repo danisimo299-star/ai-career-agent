@@ -23,6 +23,7 @@ interface MilestoneDetailSheetProps {
   onStartMilestone: (milestoneId: string) => void;
   onToggleTask: (taskId: string, completed: boolean) => void;
   starting?: boolean;
+  savingTask?: boolean;
 }
 
 export function MilestoneDetailSheet({
@@ -31,10 +32,11 @@ export function MilestoneDetailSheet({
   onStartMilestone,
   onToggleTask,
   starting,
+  savingTask,
 }: MilestoneDetailSheetProps) {
   return (
     <Sheet open={milestone !== null} onOpenChange={onOpenChange}>
-      {milestone && <MilestoneDetailContent milestone={milestone} onStartMilestone={onStartMilestone} onToggleTask={onToggleTask} starting={starting} />}
+      {milestone && <MilestoneDetailContent milestone={milestone} onStartMilestone={onStartMilestone} onToggleTask={onToggleTask} starting={starting} savingTask={savingTask} />}
     </Sheet>
   );
 }
@@ -44,11 +46,13 @@ function MilestoneDetailContent({
   onStartMilestone,
   onToggleTask,
   starting,
+  savingTask,
 }: {
   milestone: MilestoneListData;
   onStartMilestone: (milestoneId: string) => void;
   onToggleTask: (taskId: string, completed: boolean) => void;
   starting?: boolean;
+  savingTask?: boolean;
 }) {
   const { dict } = useLocale();
   const page = dict.dashboard.roadmapPage;
@@ -56,9 +60,9 @@ function MilestoneDetailContent({
   const isLocked = milestone.status === "LOCKED";
 
   return (
-      <SheetContent className="flex flex-col overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <div className="flex items-center gap-2">
+      <SheetContent className="flex flex-col overflow-y-auto break-words sm:max-w-md">
+        <SheetHeader className="pr-16">
+          <div className="flex flex-wrap items-center gap-2">
             <SheetTitle>{milestone.title}</SheetTitle>
             <Badge variant={milestone.status === "COMPLETED" ? "default" : "secondary"}>
               {page.milestoneStatus[milestone.status]}
@@ -117,7 +121,7 @@ function MilestoneDetailContent({
                 <p className="text-muted-foreground text-xs">{page.tasksLabel}</p>
                 <div className="space-y-2">
                   {milestone.tasks.map((task) => (
-                    <TaskItem key={task.id} task={task} onToggle={onToggleTask} />
+                    <TaskItem key={task.id} task={task} disabled={savingTask} onToggle={onToggleTask} />
                   ))}
                 </div>
               </div>
@@ -134,7 +138,7 @@ function MilestoneDetailContent({
         </div>
 
         {!isLocked && (
-          <SheetFooter className="flex-row gap-2">
+          <SheetFooter className="flex-col gap-2 sm:flex-row">
             {milestone.status === "AVAILABLE" && (
               <Button className="flex-1" onClick={() => onStartMilestone(milestone.id)} disabled={starting}>
                 {page.startMilestoneCta}

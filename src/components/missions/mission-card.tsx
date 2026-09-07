@@ -26,15 +26,20 @@ export function MissionCard({ mission, variant, onOpen }: MissionCardProps) {
       role="button"
       tabIndex={0}
       onClick={() => onOpen(mission.id)}
-      onKeyDown={(e) => e.key === "Enter" && onOpen(mission.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(mission.id);
+        }
+      }}
       className={cn(
-        "cursor-pointer transition-colors hover:border-primary/40",
+        "min-w-0 cursor-pointer break-words transition-colors hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-ring",
         isDone && "bg-muted/40",
         isSkippedOrExpired && "opacity-60"
       )}
     >
-      <CardHeader className="flex-row items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <CardHeader className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <span
             className={cn(
               "flex size-7 shrink-0 items-center justify-center rounded-lg",

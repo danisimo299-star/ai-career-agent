@@ -26,7 +26,7 @@ export function RoadmapTimeline({
   const page = dict.dashboard.roadmapPage;
 
   return (
-    <ol className="relative ml-4 space-y-4 border-l pl-6">
+    <ol className="relative ml-1 sm:ml-4 space-y-4 border-l pl-6">
       {milestones.map((milestone, index) => {
         const Icon = statusIcon[milestone.status];
         const progress = computeMilestoneProgress(milestone);
@@ -95,7 +95,7 @@ export function RoadmapTimeline({
                     {index + 1}. {milestone.title}
                   </span>
                 </div>
-                <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
+                <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant="secondary" className="text-xs">
                     {page.milestoneStatus[milestone.status]}
                   </Badge>

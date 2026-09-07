@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Compass,
   IdCard,
-  Map,
   Target,
   FileText,
   Mic,
@@ -30,7 +29,7 @@ export interface NavItem {
 
 export const dashboardNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, group: "primary" },
-  { labelKey: "missions", href: "/dashboard/missions", icon: Target, group: "primary" },
+  { labelKey: "plan", href: "/dashboard/plan", icon: Target, group: "primary" },
   { labelKey: "coach", href: "/dashboard/coach", icon: Sparkles, group: "primary" },
   { labelKey: "resume", href: "/dashboard/resume", icon: FileText, group: "primary" },
   { labelKey: "jobs", href: "/dashboard/jobs", icon: Briefcase, group: "primary" },
@@ -40,7 +39,6 @@ export const dashboardNav: NavItem[] = [
   // should read as visually distinct from Coach's Sparkles icon above.
   { labelKey: "questionnaire", href: "/dashboard/questionnaire", icon: ClipboardList, group: "tools" },
   { labelKey: "careerAnalysis", href: "/dashboard/career-analysis", icon: Compass, group: "tools" },
-  { labelKey: "roadmap", href: "/dashboard/roadmap", icon: Map, group: "tools" },
   { labelKey: "interview", href: "/dashboard/interview", icon: Mic, group: "tools" },
   { labelKey: "settings", href: "/dashboard/settings", icon: Settings, group: "settings" },
 ];

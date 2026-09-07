@@ -37,7 +37,7 @@ export function ProactiveInsightBanner({ targetRole, insight, className }: Proac
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 pl-12 sm:pl-0">
             <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/dashboard/jobs">{copy.showJobsCta}</Link>} />
-            <Button size="sm" nativeButton={false} render={<Link href="/dashboard/roadmap">{copy.addToRoadmapCta}</Link>} />
+            <Button size="sm" nativeButton={false} render={<Link href="/dashboard/plan?view=all">{copy.addToRoadmapCta}</Link>} />
           </div>
         </CardContent>
       </Card>

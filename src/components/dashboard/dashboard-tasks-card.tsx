@@ -31,7 +31,7 @@ export function DashboardTasksCard({ tasks }: DashboardTasksCardProps) {
         <div className="flex items-center justify-between gap-2">
           <WidgetHeader icon={ListChecks} title={t.title} />
           <Link
-            href="/dashboard/missions"
+            href="/dashboard/plan"
             className="text-muted-foreground hover:text-foreground shrink-0 text-xs font-medium whitespace-nowrap"
           >
             {t.viewAllCta}
@@ -39,7 +39,7 @@ export function DashboardTasksCard({ tasks }: DashboardTasksCardProps) {
         </div>
 
         {tasks.length === 0 ? (
-          <WidgetEmptyState icon={ListChecks} title={t.emptyTitle} description={t.emptyDescription} cta={{ label: t.viewAllCta, href: "/dashboard/missions" }} />
+          <WidgetEmptyState icon={ListChecks} title={t.emptyTitle} description={t.emptyDescription} cta={{ label: t.viewAllCta, href: "/dashboard/plan" }} />
         ) : (
           <div className="flex flex-1 flex-col gap-1">
             {tasks.map((task) => {
@@ -47,7 +47,7 @@ export function DashboardTasksCard({ tasks }: DashboardTasksCardProps) {
               return (
                 <Link
                   key={task.id}
-                  href="/dashboard/missions"
+                  href="/dashboard/plan"
                   className="hover:bg-accent -mx-1.5 flex items-center gap-2.5 rounded-md px-1.5 py-2 transition-colors duration-150"
                 >
                   <span

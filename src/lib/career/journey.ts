@@ -10,7 +10,7 @@ export interface JourneyStage {
 export const JOURNEY_STAGE_HREF: Record<JourneyStageKey, string> = {
   discover: "/dashboard/questionnaire",
   choose: "/dashboard/career-analysis",
-  build: "/dashboard/roadmap",
+  build: "/dashboard/plan?view=all",
   present: "/dashboard/resume",
   practice: "/dashboard/interview",
   apply: "/dashboard/jobs",

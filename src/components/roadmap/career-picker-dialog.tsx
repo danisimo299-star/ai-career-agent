@@ -74,7 +74,7 @@ export function CareerPickerDialog({ open, onOpenChange, currentCareerTitle, onS
           <div className="space-y-4">
             <div className="space-y-1.5">
               <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{page.customCareerLabel}</p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}

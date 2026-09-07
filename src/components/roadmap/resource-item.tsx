@@ -20,7 +20,7 @@ export function ResourceItem({ resource }: { resource: ResourceData }) {
   const content = (
     <>
       <Icon className="text-muted-foreground size-4 shrink-0" />
-      <span className="flex-1 truncate">{resource.title}</span>
+      <span className="min-w-0 flex-1 break-words">{resource.title}</span>
       {resource.difficulty && (
         <Badge variant="secondary" className="shrink-0 text-xs">
           {resource.difficulty}
@@ -34,7 +34,7 @@ export function ResourceItem({ resource }: { resource: ResourceData }) {
     </>
   );
 
-  const baseClass = "flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm";
+  const baseClass = "flex min-h-11 items-center gap-2 rounded-md border px-2.5 py-2 text-sm";
 
   if (resource.verified && resource.url) {
     return (

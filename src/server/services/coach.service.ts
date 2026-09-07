@@ -45,7 +45,7 @@ function buildIntentActions(intent: CoachIntent, snapshot: CoachContextSnapshot)
     case "skillGap":
       return [{ labelKey: "viewSkillGap", href: "/dashboard/coach?tab=skillGap" }];
     case "roadmap":
-      return [{ labelKey: "openRoadmap", href: "/dashboard/roadmap" }];
+      return [{ labelKey: "openRoadmap", href: "/dashboard/plan?view=all" }];
     case "compareCareers":
       return [{ labelKey: "compareCareers", href: "/dashboard/coach?tab=compare" }];
     case "nextAction":

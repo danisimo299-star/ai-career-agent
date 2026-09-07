@@ -31,14 +31,14 @@ export function TaskItem({ task, disabled, onToggle }: TaskItemProps) {
         />
         <Label
           htmlFor={`task-${task.id}`}
-          className={cn("flex-1 text-sm font-normal", task.completed && "text-muted-foreground line-through")}
+          className={cn("min-h-11 min-w-0 flex-1 text-sm font-normal break-words", task.completed && "text-muted-foreground line-through")}
         >
           {task.title}
         </Label>
         <Button
           size="icon-xs"
           variant="ghost"
-          className="text-muted-foreground opacity-0 transition-opacity group-hover/task:opacity-100 focus-visible:opacity-100"
+          className="text-muted-foreground opacity-100 transition-opacity md:opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
           title={page.discussTaskCta}
           aria-label={page.discussTaskCta}
           nativeButton={false}

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { PlanNavigation } from "@/components/plan/plan-navigation";
+import type { PlanView } from "@/lib/career/plan-navigation";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { Sparkles, RotateCw, Map } from "lucide-react";
@@ -22,15 +25,25 @@ interface RoadmapViewProps {
   careerScore: number;
   suggestedCareerTitle: string | null;
   recommendedCareers: string[];
+  view: PlanView;
+  today: ReactNode;
 }
 
 type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "ai_busy" | "invalid_input" | null;
 
-export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle, recommendedCareers }: RoadmapViewProps) {
+export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle, recommendedCareers, view, today }: RoadmapViewProps) {
   const { dict } = useLocale();
+  const router = useRouter();
   const page = dict.dashboard.roadmapPage;
 
   const [roadmap, setRoadmap] = useState(initialRoadmap);
+  // Server refresh after a mission completes also updates its linked roadmap task.
+  const [previousRoadmap, setPreviousRoadmap] = useState(initialRoadmap);
+  if (previousRoadmap !== initialRoadmap) {
+    setPreviousRoadmap(initialRoadmap);
+    setRoadmap(initialRoadmap);
+  }
+  const [savingTask, setSavingTask] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<ErrorKind>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
@@ -62,14 +75,17 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
         const body = await response.json().catch(() => ({ error: "generic" }));
         setError(body.error ?? "generic");
         toast.error(errorMessage(body.error ?? "generic"));
-        return;
+        return false;
       }
 
       const data = (await response.json()) as { roadmap: RoadmapData };
       setRoadmap(data.roadmap);
+      router.refresh();
+      return true;
     } catch {
       setError("generic");
       toast.error(errorMessage("generic"));
+      return false;
     } finally {
       setGenerating(false);
     }
@@ -82,6 +98,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
       if (!response.ok) throw new Error("failed");
       const data = (await response.json()) as { roadmap: RoadmapData };
       setRoadmap(data.roadmap);
+      router.refresh();
     } catch {
       toast.error(page.errorGeneration);
     } finally {
@@ -90,6 +107,8 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
   };
 
   const handleToggleTask = async (taskId: string, completed: boolean) => {
+    if (savingTask) return;
+    setSavingTask(true);
     // optimistic update
     setRoadmap((prev) =>
       prev
@@ -112,16 +131,20 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
       if (!response.ok) throw new Error("failed");
       const data = (await response.json()) as { roadmap: RoadmapData };
       setRoadmap(data.roadmap);
+      router.refresh();
     } catch {
       toast.error(page.errorGeneration);
       if (roadmap) setRoadmap(roadmap);
+    } finally {
+      setSavingTask(false);
     }
   };
 
   if (!roadmap) {
     return (
       <div className="space-y-6">
-        <PageHeader title={page.title} description={page.subtitle} icon={Map} tone="roadmap" />
+        <PageHeader title={dict.dashboard.planPage.title} description={dict.dashboard.planPage.subtitle} icon={Map} tone="roadmap" />
+        <PlanNavigation view={view} />
         <div className="bg-roadmap-tint space-y-6 rounded-3xl p-4 sm:p-6">
           <EmptyState icon={Map} title={page.emptyTitle} description={page.emptyDescription} />
           <div className="flex flex-col items-center gap-3">
@@ -133,6 +156,8 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
           </div>
         </div>
 
+        {today}
+
         <CareerPickerDialog
           open={careerPickerOpen}
           onOpenChange={setCareerPickerOpen}
@@ -140,8 +165,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
           loading={generating}
           recommendedCareers={recommendedCareers}
           onSelect={async (title) => {
-            await generate(title);
-            setCareerPickerOpen(false);
+            if (await generate(title)) setCareerPickerOpen(false);
           }}
         />
       </div>
@@ -177,11 +201,14 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
         disabled={generating}
       />
 
-      <InsightBanner text={insightText} />
+      <PlanNavigation view={view} />
 
-      <div className="bg-roadmap-tint rounded-3xl p-4 sm:p-6">
-        <RoadmapTimeline milestones={roadmap.milestones} onSelect={setSelectedMilestoneId} />
-      </div>
+      {view === "today" ? today : <>
+        <InsightBanner text={insightText} />
+        <div className="bg-roadmap-tint rounded-3xl p-3 sm:p-6">
+          <RoadmapTimeline milestones={roadmap.milestones} onSelect={setSelectedMilestoneId} />
+        </div>
+      </>}
 
       <MilestoneDetailSheet
         milestone={selectedMilestone}
@@ -189,6 +216,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
         onStartMilestone={handleStartMilestone}
         onToggleTask={handleToggleTask}
         starting={startingMilestone}
+        savingTask={savingTask}
       />
 
       <CareerPickerDialog
@@ -198,8 +226,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
         loading={generating}
         recommendedCareers={recommendedCareers}
         onSelect={async (title) => {
-          await generate(title);
-          setCareerPickerOpen(false);
+          if (await generate(title)) setCareerPickerOpen(false);
         }}
       />
 
@@ -208,8 +235,7 @@ export function RoadmapView({ initialRoadmap, careerScore, suggestedCareerTitle,
         onOpenChange={setRegenerateConfirmOpen}
         loading={generating}
         onConfirm={async () => {
-          await generate(roadmap.careerTitle);
-          setRegenerateConfirmOpen(false);
+          if (await generate(roadmap.careerTitle)) setRegenerateConfirmOpen(false);
         }}
       />
     </motion.div>

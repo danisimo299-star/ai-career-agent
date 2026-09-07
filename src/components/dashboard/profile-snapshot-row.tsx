@@ -52,7 +52,7 @@ export function ProfileSnapshotRow({ profilePercent, planPercent, resumeScore, i
       label: s.plan.label,
       value: planPercent !== null ? `${planPercent}%` : s.plan.notStarted,
       percent: planPercent,
-      href: "/dashboard/roadmap",
+      href: "/dashboard/plan?view=all",
       icon: Map,
       toneClass: "bg-tool-roadmap-solid text-white",
     },

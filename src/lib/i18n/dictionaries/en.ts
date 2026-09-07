@@ -24,6 +24,7 @@ export const en = {
       "ProfyMind is a personal AI career assistant. Find the right profession, assess your skills, build a career plan and resume, prepare for interviews, and discover matching jobs.",
   },
   nav: {
+    plan: "My plan",
     dashboard: "Home",
     questionnaire: "Career Interview",
     careerAnalysis: "Career Analysis",
@@ -463,6 +464,15 @@ export const en = {
       title: "Build your career profile",
       description: "A few minutes with the Career Interview is all it takes to build your career profile and get real recommendations.",
       cta: "Start the questionnaire",
+    },
+    planPage: {
+      title: "My plan",
+      subtitle: "From your career goal to daily actions.",
+      today: "Today",
+      all: "Full plan",
+      history: "Task history",
+      details: "Plan settings",
+      completedToday: "Completed and skipped today",
     },
     roadmapPage: {
       title: "Career Roadmap",

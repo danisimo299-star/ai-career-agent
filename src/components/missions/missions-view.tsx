@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { Sparkles, RotateCw, Target, Map, ListChecks } from "lucide-react";
@@ -27,6 +28,7 @@ interface MissionsViewProps {
   currentMilestoneTitle: string | null;
   history: MissionHistoryEntry[];
   initialStreak: number;
+  embedded?: boolean;
 }
 
 type ErrorKind = "generic" | "ai_invalid_response" | "ai_unavailable" | "no_roadmap" | null;
@@ -41,11 +43,18 @@ export function MissionsView({
   currentMilestoneTitle,
   history,
   initialStreak,
+  embedded = false,
 }: MissionsViewProps) {
   const { dict } = useLocale();
+  const router = useRouter();
   const page = dict.dashboard.missionsPage;
 
   const [missions, setMissions] = useState(initialMissions);
+  const [previousMissions, setPreviousMissions] = useState(initialMissions);
+  if (previousMissions !== initialMissions) {
+    setPreviousMissions(initialMissions);
+    setMissions(initialMissions);
+  }
   const [insight, setInsight] = useState(initialInsight);
   const [careerScore, setCareerScore] = useState(initialCareerScore);
   const [streak, setStreak] = useState(initialStreak);
@@ -78,6 +87,7 @@ export function MissionsView({
       const data = (await response.json()) as { missions: CareerMissionData[]; insight: string | null };
       setMissions(data.missions);
       if (data.insight) setInsight(data.insight);
+      router.refresh();
     } catch {
       setError("generic");
       toast.error(errorMessage("generic"));
@@ -103,6 +113,7 @@ export function MissionsView({
       if (data.missions) setMissions(data.missions);
       if (typeof data.careerScore === "number") setCareerScore(data.careerScore);
       if (typeof data.streak === "number") setStreak(data.streak);
+      router.refresh();
       return true;
     } catch {
       toast.error(page.errorGeneration);
@@ -126,18 +137,27 @@ export function MissionsView({
     if (ok) setSelectedMissionId(null);
   };
 
+  const historySection = (
+    <details className="rounded-xl border p-4">
+      <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">{dict.dashboard.planPage.history}</summary>
+      <div className="mt-3"><MissionHistory history={history} /></div>
+    </details>
+  );
+
+  if (!hasRoadmap && embedded) return historySection;
+
   if (!hasRoadmap) {
     return (
       <div className="space-y-6">
-        <MissionsHeader
+        {!embedded && <MissionsHeader
           careerTitle={null}
           careerScore={careerScore}
           roadmapProgressPercent={0}
           currentMilestoneTitle={null}
-        />
+        />}
         <EmptyState icon={Map} title={page.noRoadmapTitle} description={page.noRoadmapDescription} />
         <div className="flex justify-center">
-          <Button nativeButton={false} render={<Link href="/dashboard/roadmap">{page.createRoadmapCta}</Link>} />
+          <Button nativeButton={false} render={<Link href="/dashboard/plan?view=all">{page.createRoadmapCta}</Link>} />
         </div>
       </div>
     );
@@ -178,15 +198,19 @@ export function MissionsView({
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="space-y-6"
     >
-      <MissionsHeader
+      {!embedded && <MissionsHeader
         careerTitle={careerTitle}
         careerScore={careerScore}
         roadmapProgressPercent={roadmapProgressPercent}
         currentMilestoneTitle={currentMilestoneTitle}
         streakDays={streak}
-      />
+      />}
 
-      <InsightBanner text={insight} />
+      {!embedded && <InsightBanner text={insight} />}
+      {embedded && currentMilestoneTitle && (
+        <p className="text-muted-foreground text-sm break-words">{page.currentMilestoneLabel}: <span className="text-foreground font-medium">{currentMilestoneTitle}</span></p>
+      )}
+      {embedded && streak > 0 && <p className="text-muted-foreground text-sm">{page.streakLabel}: {page.streakTemplate.replace("{days}", String(streak))}</p>}
 
       {missions.length === 0 ? (
         <>
@@ -213,7 +237,15 @@ export function MissionsView({
             </div>
           )}
 
-          <Tabs defaultValue="all">
+          {embedded ? <div className="space-y-4">
+            {activeMissions.length > 0 && renderMissionList(activeMissions, page.emptyTabTitle, page.emptyTabActiveDescription)}
+            {closedMissions.length > 0 && <details className="rounded-xl border p-4">
+              <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">{dict.dashboard.planPage.completedToday} ({closedMissions.length})</summary>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {closedMissions.map((mission) => <MissionCard key={mission.id} mission={mission} variant="secondary" onOpen={setSelectedMissionId} />)}
+              </div>
+            </details>}
+          </div> : <Tabs defaultValue="active">
             <TabsList>
               <TabsTrigger value="all">{page.tabs.all}</TabsTrigger>
               <TabsTrigger value="active">{page.tabs.active}</TabsTrigger>
@@ -228,11 +260,11 @@ export function MissionsView({
             <TabsContent value="completed" className="mt-4 space-y-4">
               {renderMissionList(closedMissions, page.emptyTabTitle, page.emptyTabCompletedDescription)}
             </TabsContent>
-          </Tabs>
+          </Tabs>}
         </>
       )}
 
-      <MissionHistory history={history} />
+      {historySection}
 
       <MissionDetailSheet
         mission={selectedMission}

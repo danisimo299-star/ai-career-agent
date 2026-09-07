@@ -67,7 +67,7 @@ export function WeeklyFocusPreview({ milestoneTitle, tasks, percent }: WeeklyFoc
         </div>
 
         {visibleTasks.length === 0 ? (
-          <WidgetEmptyState icon={Target} title={w.emptyTitle} description={w.emptyDescription} cta={{ label: w.emptyCta, href: "/dashboard/roadmap" }} />
+          <WidgetEmptyState icon={Target} title={w.emptyTitle} description={w.emptyDescription} cta={{ label: w.emptyCta, href: "/dashboard/plan?view=all" }} />
         ) : (
           <div className="flex flex-1 flex-col gap-2.5">
             {milestoneTitle && <p className="text-muted-foreground truncate text-xs">{milestoneTitle}</p>}

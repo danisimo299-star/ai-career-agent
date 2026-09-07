@@ -33,11 +33,46 @@ export function RoadmapHeader({
   return (
     <div className="space-y-4">
       <PageHeader
-        title={page.title}
-        description={page.subtitle}
+        title={dict.dashboard.planPage.title}
+        description={dict.dashboard.planPage.subtitle}
         icon={Map}
         tone="roadmap"
-        action={
+      />
+
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-4 pt-6">
+          <div className="col-span-2 min-w-0 sm:col-span-1">
+            <p className="text-muted-foreground text-xs">{page.goalLabel}</p>
+            {/* The actual career goal, not a fixed label — wraps rather
+                than ellipsis-cutting a real (possibly long) job title. */}
+            <p className="text-base leading-snug font-semibold break-words">{careerTitle}</p>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-muted-foreground text-xs">{page.progressLabel}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-base font-semibold">{progress.percent}%</p>
+              <div role="progressbar" aria-label={page.progressLabel} aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress.percent}%` }} />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <details className="border-b pb-2">
+        <summary className="text-muted-foreground min-h-11 cursor-pointer content-center text-sm font-medium">{dict.dashboard.planPage.details}</summary>
+        <div className="space-y-4 pb-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+            <p className="text-muted-foreground text-xs">{page.careerScoreLabel}</p>
+            <p className="text-base font-semibold">{careerScore} / 100</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs">{page.estimatedTimeLabel}</p>
+            <p className="text-base font-semibold">
+              {page.estimatedTimeTemplate.replace("{min}", String(estimatedRange.min)).replace("{max}", String(estimatedRange.max))}
+            </p>
+          </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -59,38 +94,8 @@ export function RoadmapHeader({
               {page.regenerateCta}
             </Button>
           </div>
-        }
-      />
-
-      <Card>
-        <CardContent className="grid grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs">{page.goalLabel}</p>
-            {/* The actual career goal, not a fixed label — wraps rather
-                than ellipsis-cutting a real (possibly long) job title. */}
-            <p className="text-base leading-snug font-semibold break-words">{careerTitle}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">{page.careerScoreLabel}</p>
-            <p className="text-base font-semibold">{careerScore} / 100</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">{page.progressLabel}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-base font-semibold">{progress.percent}%</p>
-              <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
-                <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress.percent}%` }} />
-              </div>
-            </div>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">{page.estimatedTimeLabel}</p>
-            <p className="text-base font-semibold">
-              {page.estimatedTimeTemplate.replace("{min}", String(estimatedRange.min)).replace("{max}", String(estimatedRange.max))}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
     </div>
   );
 }

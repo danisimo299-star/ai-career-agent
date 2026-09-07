@@ -71,9 +71,9 @@ function MissionDetailContent({
   const isTerminal = mission.status === "COMPLETED" || mission.status === "SKIPPED" || mission.status === "EXPIRED";
 
   return (
-    <SheetContent className="flex flex-col overflow-y-auto sm:max-w-md">
-      <SheetHeader>
-        <div className="flex items-center gap-2">
+    <SheetContent className="flex flex-col overflow-y-auto break-words sm:max-w-md">
+      <SheetHeader className="pr-16">
+        <div className="flex flex-wrap items-center gap-2">
           <SheetTitle>{mission.title}</SheetTitle>
           <MissionStatusBadge status={mission.status} />
         </div>

@@ -10,11 +10,11 @@ import { dashboardNav } from "@/config/nav";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
-const PRIMARY_HREFS = ["/dashboard", "/dashboard/missions", "/dashboard/coach", "/dashboard/resume"] as const;
+const PRIMARY_HREFS = ["/dashboard", "/dashboard/plan", "/dashboard/coach", "/dashboard/resume"] as const;
 
 const PRIMARY_ICONS: Record<(typeof PRIMARY_HREFS)[number], LucideIcon> = {
   "/dashboard": LayoutDashboard,
-  "/dashboard/missions": Target,
+  "/dashboard/plan": Target,
   "/dashboard/coach": Sparkles,
   "/dashboard/resume": FileText,
 };
@@ -33,7 +33,7 @@ export function MobileBottomNav() {
 
   const primaryLabel: Record<(typeof PRIMARY_HREFS)[number], string> = {
     "/dashboard": nav.home,
-    "/dashboard/missions": dict.nav.missions,
+    "/dashboard/plan": dict.nav.plan,
     "/dashboard/coach": nav.coach,
     "/dashboard/resume": dict.nav.resume,
   };

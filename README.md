@@ -46,10 +46,17 @@ code — there's nothing in the codebase that can address it.
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
+| `npm run test:e2e` | Mobile plan and public-page browser checks (local DB, temporary users, mock AI) |
 | `npm run db:push` | Push `prisma/schema.prisma` to the database (no migration files — good for early development) |
 | `npm run db:migrate` | Create a versioned migration (switch to this once the schema stabilizes) |
 | `npm run db:studio` | Prisma Studio, a GUI for the database |
 | `npm run db:seed` | Run `prisma/seed.ts` |
+
+## My plan and mobile checks
+
+Roadmap and daily missions now share `/dashboard/plan` (Today) and
+`/dashboard/plan?view=all` (Full plan). The former roadmap/missions URLs remain
+compatible redirects. See [behavior, data preservation and test instructions](docs/mobile-plan.md).
 
 ## Project status
 

@@ -506,3 +506,63 @@
     background-position: -20% 0;
   }
 }
+/* Touch controls keep the desktop density above md. Scope by component slot,
+   so small decorative icons/badges are not enlarged. Do not clip page overflow. */
+@media (max-width: 767px) {
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  [data-slot="tabs-trigger"],
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-trigger"],
+  [data-slot="sheet-close"],
+  [data-slot="dialog-close"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  [data-slot="button"] {
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    font-size: 16px;
+  }
+  [data-slot="tabs-list"] {
+    max-width: 100%;
+    height: auto;
+    min-height: 50px;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+  [data-slot="tabs-trigger"] {
+    flex-shrink: 0;
+  }
+  [data-slot="tabs"],
+  [data-slot="tabs-content"] {
+    min-width: 0;
+  }
+  [data-slot="sheet-content"][data-side="right"],
+  [data-slot="sheet-content"][data-side="left"] {
+    width: 100%;
+    height: 100dvh;
+  }
+  [data-slot="sheet-footer"] {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  [data-slot="dialog-content"] {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+  [data-slot="dialog-header"] {
+    padding-right: 44px;
+  }
+  [data-slot="badge"] {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
