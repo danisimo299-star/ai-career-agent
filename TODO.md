@@ -73,4 +73,4 @@ end-to-end — see ARCHITECTURE.md. What's below is what's left.
 - [ ] Observability: structured logging around AI calls (provider, latency, token usage if available)
 - [ ] Switch `prisma db push` to versioned migrations (`npm run db:migrate`) once the schema stabilizes
 - [ ] Decide the real `AI_PROVIDER` for staging/production and set the matching API key (currently `mock` everywhere)
-- [ ] Register an application at dev.hh.ru and set `HH_ACCESS_TOKEN` + `JOBS_PROVIDER=hh` to turn on live HH.ru vacancy search (see ARCHITECTURE.md's "Job Matching" section for what's already built and ready for this) — no code changes needed, just credentials
+- [ ] Turn on live HH.ru vacancy search: set `HH_CLIENT_ID` + `HH_CLIENT_SECRET` (registered dev.hh.ru application) and `JOBS_PROVIDER=hh`. The `client_credentials` token exchange, caching and failure handling are implemented (`lib/jobs/hh-token.ts`) — only valid credentials are missing. The values currently in `.env` are rejected by HH with `invalid_client`, so they need re-checking against dev.hh.ru.

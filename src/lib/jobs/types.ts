@@ -25,14 +25,36 @@ export interface JobSearchQuery {
 }
 
 /**
+ * Why a search reports no vacancies. An empty `results` array is ambiguous on
+ * its own, and the difference matters to the user: "this search really has no
+ * matches" is a fact about the job market, while "we could not reach HH.ru" is
+ * a fact about us. Collapsing the latter into the former makes the app state
+ * something false with full confidence, so the distinction is carried in the
+ * contract rather than reconstructed downstream.
+ */
+export type JobProviderSearchStatus =
+  /** The provider answered. `results` is the real, complete answer — including a genuinely empty one. */
+  | "ok"
+  /** No credentials configured, so no live search was attempted. */
+  | "not_configured"
+  /** The provider was asked and failed (rejected credentials, HTTP error, network error). Nothing is known about the market. */
+  | "unavailable";
+
+export interface JobProviderSearchResult {
+  status: JobProviderSearchStatus;
+  results: JobRecommendationDTO[];
+}
+
+/**
  * Job board integrations (HH.ru, LinkedIn, etc.) all implement this
  * contract. `MockJobsProvider` is the always-on demo source; `HhJobsProvider`
- * performs a real authenticated search when `HH_ACCESS_TOKEN` is configured
- * and otherwise returns no results (never fabricated ones) — either way,
- * `jobsService` always additionally computes a real HH.ru search link via
- * `buildHhSearchUrl` so the product stays useful with zero credentials.
+ * performs a real authenticated search when `HH_CLIENT_ID`/`HH_CLIENT_SECRET`
+ * are configured and otherwise reports `not_configured` (never fabricated
+ * results) — either way, `jobsService` always additionally computes a real
+ * HH.ru search link via `buildHhSearchUrl` so the product stays useful with
+ * zero credentials.
  */
 export interface JobsProvider {
   readonly name: string;
-  search(query: JobSearchQuery): Promise<JobRecommendationDTO[]>;
+  search(query: JobSearchQuery): Promise<JobProviderSearchResult>;
 }

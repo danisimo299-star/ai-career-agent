@@ -11,7 +11,7 @@ export { HH_SCHEDULE_VALUES } from "./hh-query";
  * public API (`GET https://api.hh.ru/areas/113`, `GET
  * https://api.hh.ru/dictionaries`, both anonymous 200 OK) — never guessed.
  * `GET /vacancies` itself currently returns 403 "forbidden" without a
- * registered OAuth app (see `HH_ACCESS_TOKEN` in `lib/env.ts`), so these
+ * registered OAuth app (see `HH_CLIENT_ID`/`HH_CLIENT_SECRET` in `lib/env.ts`), so these
  * values are what `buildHhSearchUrl` uses to construct a genuine,
  * correctly-parameterized `hh.ru/search/vacancy` link — the same URL a real
  * person typing that search into HH.ru themselves would land on.

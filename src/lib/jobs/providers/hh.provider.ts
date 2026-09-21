@@ -1,10 +1,10 @@
 import type { JobRecommendationDTO } from "@/types";
 import type { WorkFormat } from "@prisma/client";
-import { env } from "@/lib/env";
-import type { JobSearchQuery, JobsProvider } from "../types";
+import type { JobSearchQuery, JobsProvider, JobProviderSearchResult } from "../types";
 import { resolveAreaIdLive } from "../hh-areas";
 import { buildHHVacancyParams } from "../hh-query";
 import { HH_USER_AGENT, fetchHhAuthed } from "../hh-client";
+import { getHhToken } from "../hh-token";
 import { isTrustedHhUrl } from "@/lib/security/url-safety";
 
 interface HhVacancy {
@@ -87,9 +87,12 @@ function mapVacancy(vacancy: HhVacancy): JobRecommendationDTO | null {
 export class HhJobsProvider implements JobsProvider {
   readonly name = "hh";
 
-  async search(query: JobSearchQuery): Promise<JobRecommendationDTO[]> {
+  async search(query: JobSearchQuery): Promise<JobProviderSearchResult> {
     const result = await searchHhVacancies(query);
-    return result.status === "ok" ? result.data : [];
+    if (result.status === "ok") return { status: "ok", results: result.data };
+    // An API failure is not an empty job market. Report why, so the UI can
+    // say "we could not check" instead of "there are no vacancies".
+    return { status: result.status === "no_token" ? "not_configured" : "unavailable", results: [] };
   }
 }
 
@@ -123,7 +126,12 @@ export async function searchHhVacancies(query: JobSearchQuery): Promise<HhVacanc
     page: query.page,
   }).toString();
 
-  const result = await fetchHhAuthed<HhSearchResponse>(url, env.HH_ACCESS_TOKEN);
+  const token = await getHhToken();
+  if (token.status === "not_configured") return { status: "no_token" };
+  // Credentials present but unusable — an auth failure, not an absent setup.
+  if (token.status === "error") return { status: "http_error" };
+
+  const result = await fetchHhAuthed<HhSearchResponse>(url, token.accessToken);
   if (result.status !== "ok") return result;
 
   const data = result.data.items.map(mapVacancy).filter((v): v is JobRecommendationDTO => v !== null);

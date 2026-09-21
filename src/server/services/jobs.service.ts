@@ -10,7 +10,7 @@ import { jobPreferenceRepository } from "@/server/repositories/job-preference.re
 import { savedJobRepository, type CreateSavedJobInput } from "@/server/repositories/saved-job.repository";
 import { getJobsProvider } from "@/lib/jobs/provider";
 import { buildHhSearchUrl } from "@/lib/jobs/hh-reference";
-import type { JobSearchQuery } from "@/lib/jobs/types";
+import type { JobSearchQuery, JobProviderSearchStatus } from "@/lib/jobs/types";
 import { computeJobMatch, computeResumeVacancyMatch, experienceLevelToHhExperience, type JobMatchResult } from "@/lib/career/job-matching";
 import { compareSkills } from "@/lib/career/skill-normalization";
 import { getAICareerService } from "@/lib/ai/career/get-career-service";
@@ -99,6 +99,13 @@ export interface JobSearchResponse {
    * brief). Never silently substituted into `results` itself.
    */
   broaderMarket?: { nationwideCount: number; remoteCount: number };
+  /**
+   * Whether the live search actually ran. `ok` means `results` is the real
+   * answer; `unavailable`/`not_configured` mean it is empty because we could
+   * not look, which the empty state must say out loud rather than dress up as
+   * "no vacancies found".
+   */
+  searchStatus: JobProviderSearchStatus;
 }
 
 const HH_EXPERIENCE_RANK: Record<string, number> = {
@@ -130,9 +137,9 @@ function sortResults(items: JobSearchResultItem[], sort: JobSearchFiltersInput["
 
 async function performSearch(userId: string, query: JobSearchQuery, targetRole: string, sort: JobSearchFiltersInput["sort"]): Promise<JobSearchResponse> {
   const [matchContext, provider] = [await loadMatchContext(userId), getJobsProvider()];
-  const vacancies = await provider.search(query);
+  const search = await provider.search(query);
 
-  const results: JobSearchResultItem[] = vacancies.map((vacancy) => ({
+  const results: JobSearchResultItem[] = search.results.map((vacancy) => ({
     vacancy,
     match: computeJobMatch({
       userSkills: matchContext.userSkills,
@@ -166,15 +173,20 @@ async function performSearch(userId: string, query: JobSearchQuery, targetRole: 
   });
 
   let broaderMarket: JobSearchResponse["broaderMarket"];
-  if (results.length === 0 && query.city) {
+  // Only worth widening the search when the narrow one genuinely came back
+  // empty. If it failed, the fallback would fail the same way and report
+  // 0 nationwide / 0 remote — presenting an outage as a verified empty market.
+  if (search.status === "ok" && results.length === 0 && query.city) {
     const [nationwide, remote] = await Promise.all([
       provider.search({ ...query, city: undefined }),
       provider.search({ ...query, city: undefined, workFormat: "REMOTE" }),
     ]);
-    broaderMarket = { nationwideCount: nationwide.length, remoteCount: remote.length };
+    if (nationwide.status === "ok" && remote.status === "ok") {
+      broaderMarket = { nationwideCount: nationwide.results.length, remoteCount: remote.results.length };
+    }
   }
 
-  return { results: sortResults(results, sort), hhSearchUrl, providerName: provider.name, broaderMarket };
+  return { results: sortResults(results, sort), hhSearchUrl, providerName: provider.name, broaderMarket, searchStatus: search.status };
 }
 
 export const jobsService = {
@@ -217,7 +229,7 @@ export const jobsService = {
     }
 
     const experienceLevel = preferences?.experienceLevel ?? profile?.experienceLevel ?? null;
-    const { results } = await performSearch(
+    const { results, searchStatus } = await performSearch(
       userId,
       {
         targetRole,
@@ -232,6 +244,10 @@ export const jobsService = {
       targetRole,
       "bestMatch"
     );
+
+    // A failed search must not be mistaken for "the market emptied out" and
+    // wipe the user's stored recommendations — keep the previous set instead.
+    if (searchStatus !== "ok") return jobRepository.listByUser(userId);
 
     const top = results.slice(0, RECOMMENDED_COUNT);
     const provider = getJobsProvider();

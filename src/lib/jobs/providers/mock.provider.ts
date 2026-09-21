@@ -1,6 +1,6 @@
 import type { JobRecommendationDTO } from "@/types";
 import type { WorkFormat } from "@prisma/client";
-import type { JobSearchQuery, JobsProvider, JobEmploymentType, JobExperienceLevel } from "../types";
+import type { JobSearchQuery, JobsProvider, JobProviderSearchResult, JobEmploymentType, JobExperienceLevel } from "../types";
 import { buildHhSearchUrl } from "../hh-reference";
 import { professionCatalog } from "@/lib/ai/career/mock-data";
 
@@ -51,17 +51,17 @@ function workFormatMatches(vacancyFormat: WorkFormat, queryFormat?: WorkFormat):
 export class MockJobsProvider implements JobsProvider {
   readonly name = "mock";
 
-  async search(query: JobSearchQuery): Promise<JobRecommendationDTO[]> {
+  async search(query: JobSearchQuery): Promise<JobProviderSearchResult> {
     // Only ever one page of demo data — honestly return nothing further
     // rather than repeating the same 5 templates under a "load more" click.
-    if (query.page && query.page > 0) return [];
+    if (query.page && query.page > 0) return { status: "ok", results: [] };
 
     const city = query.city ?? undefined;
     const requiredSkills = guessRequiredSkills(query.targetRole, query.skills);
 
     const candidates = query.internshipOnly ? LISTING_TEMPLATES.filter((t) => t.employment === "probation") : LISTING_TEMPLATES;
 
-    return candidates
+    const results = candidates
       .filter((t) => workFormatMatches(t.workFormat, query.workFormat))
       .filter((t) => !query.experience || t.experience === query.experience)
       .filter((t) => !query.employmentTypes || query.employmentTypes.length === 0 || query.employmentTypes.includes(t.employment))
@@ -91,5 +91,7 @@ export class MockJobsProvider implements JobsProvider {
           isSearchLink: true,
         } satisfies JobRecommendationDTO;
       });
+
+    return { status: "ok", results };
   }
 }

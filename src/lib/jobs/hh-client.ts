@@ -4,7 +4,7 @@
  * UA is more likely to be rate-limited or rejected). Shared by every HH
  * endpoint this app calls (`/vacancies`, `/professional_roles`, `/areas`).
  */
-export const HH_USER_AGENT = "ProfyMind/1.0 (+https://profymind.app; contact: support@profymind.app)";
+export const HH_USER_AGENT = "ProfyMind/1.0 (+https://profymind.ru; contact: support@profymind.ru)";
 
 /**
  * A single fetch result shape shared by every real HH.ru call in this app,

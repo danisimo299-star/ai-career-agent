@@ -41,7 +41,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         professionalRoleIds: defaultRoleId ? [defaultRoleId] : undefined,
         sort: "bestMatch",
       })
-    : { results: [], hhSearchUrl: "", providerName: "mock" };
+    : { results: [], hhSearchUrl: "", providerName: "mock", broaderMarket: undefined, searchStatus: "ok" as const };
 
   return (
     <JobsView
@@ -49,6 +49,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
       initialHhSearchUrl={initial.hhSearchUrl}
       initialProviderName={initial.providerName}
       initialBroaderMarket={initial.broaderMarket ?? null}
+      initialSearchStatus={initial.searchStatus}
       initialSavedJobs={
         savedJobs.map((job) => ({
           ...job,

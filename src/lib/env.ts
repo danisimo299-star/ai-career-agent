@@ -77,10 +77,18 @@ const baseEnvSchema = z.object({
   AI_MAX_CONCURRENT_GENERATIONS: z.coerce.number().int().positive().default(1),
 
   JOBS_PROVIDER: z.enum(["mock", "hh"]).default("mock"),
-  /// Optional HH.ru OAuth access token (see dev.hh.ru — requires a
-  /// registered application). Without it, `HhJobsProvider` never fabricates
-  /// vacancies: it returns no live results and the caller falls back to a
-  /// real, correctly-parameterized HH.ru search link instead.
+  /// Credentials of the registered dev.hh.ru application. `GET /vacancies`
+  /// returns 403 for anonymous callers, so a real search needs an application
+  /// token, which `hh-token.ts` mints from these via `client_credentials` and
+  /// caches in memory. This is the server-application grant — it authenticates
+  /// ProfyMind itself, so no redirect URI or per-user consent is involved.
+  /// Without them `HhJobsProvider` never fabricates vacancies: it reports the
+  /// search as unavailable and the caller falls back to a real,
+  /// correctly-parameterized HH.ru search link instead.
+  HH_CLIENT_ID: z.string().optional(),
+  HH_CLIENT_SECRET: z.string().optional(),
+  /// Manual override — a token obtained by hand, used as-is instead of the
+  /// `client_credentials` exchange. Mainly for local debugging.
   HH_ACCESS_TOKEN: z.string().optional(),
   /// Minimum confirmed HH.ru vacancies in the user's city for a recommendation
   /// to count as a normal (non-"limited market") primary suggestion — see

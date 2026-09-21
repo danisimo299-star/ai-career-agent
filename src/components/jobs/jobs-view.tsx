@@ -34,10 +34,13 @@ interface JobsViewProps {
   initialHhSearchUrl: string;
   initialProviderName: string;
   initialBroaderMarket?: BroaderMarket | null;
+  initialSearchStatus?: JobSearchStatus;
   initialSavedJobs: SavedJobData[];
   defaultTargetRole: string;
   defaultCity?: string;
 }
+
+type JobSearchStatus = "ok" | "not_configured" | "unavailable";
 
 function vacancyKey(vacancy: VacancyData): string {
   return vacancy.sourceUrl;
@@ -48,6 +51,7 @@ export function JobsView({
   initialHhSearchUrl,
   initialProviderName,
   initialBroaderMarket,
+  initialSearchStatus,
   initialSavedJobs,
   defaultTargetRole,
   defaultCity,
@@ -60,6 +64,7 @@ export function JobsView({
   const [hhSearchUrl, setHhSearchUrl] = useState(initialHhSearchUrl);
   const [providerName, setProviderName] = useState(initialProviderName);
   const [broaderMarket, setBroaderMarket] = useState(initialBroaderMarket ?? null);
+  const [searchStatus, setSearchStatus] = useState<JobSearchStatus>(initialSearchStatus ?? "ok");
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   // `new Date()` can never be the initial value here — the server renders
@@ -120,11 +125,13 @@ export function JobsView({
         hhSearchUrl: string;
         providerName: string;
         broaderMarket?: BroaderMarket;
+        searchStatus?: JobSearchStatus;
       };
       setResults(data.results);
       setHhSearchUrl(data.hhSearchUrl);
       setProviderName(data.providerName);
       setBroaderMarket(data.broaderMarket ?? null);
+      setSearchStatus(data.searchStatus ?? "ok");
       setResultsFetchedAt(new Date());
       // Collapses the filter form back behind "Фильтры" below `lg:` once a
       // search actually ran — irrelevant at `lg:`+, where the form always
@@ -319,6 +326,15 @@ export function JobsView({
 
           {results.length === 0 ? (
             hasSearched ? (
+              searchStatus !== "ok" ? (
+                <div className="space-y-3">
+                  <EmptyState
+                    icon={SearchIcon}
+                    title={searchStatus === "not_configured" ? page.results.notConfiguredTitle : page.results.unavailableTitle}
+                    description={searchStatus === "not_configured" ? page.results.notConfiguredDescription : page.results.unavailableDescription}
+                  />
+                </div>
+              ) : (
               <div className="space-y-3">
                 <EmptyState icon={SearchIcon} title={page.results.emptyTitle} description={page.results.emptyDescription} />
                 {broaderMarket && (broaderMarket.nationwideCount > 0 || broaderMarket.remoteCount > 0) ? (
@@ -350,6 +366,7 @@ export function JobsView({
                   </ul>
                 )}
               </div>
+              )
             ) : (
               <EmptyState icon={SearchIcon} title={page.results.emptyTitle} description={page.results.emptyDescription} />
             )
