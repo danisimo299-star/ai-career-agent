@@ -39,6 +39,9 @@ export default async function RootPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
+          // `JSON.stringify` does not escape `<`, so a `</script>` inside any
+          // embedded string would close this tag early — escaped per Next's
+          // own JSON-LD guide.
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",
@@ -46,7 +49,7 @@ export default async function RootPage() {
             url: siteConfig.url,
             description: seo.description,
             inLanguage: locale === "ru" ? "ru-RU" : "en-US",
-          }),
+          }).replace(/</g, "\\u003c"),
         }}
       />
       <LandingPage />
